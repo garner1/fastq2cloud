@@ -17,6 +17,7 @@ cnames = seqnames(Hsapiens)
 
 # loop of the dimensions of the markov chain, with in_dim from 3 to 8 and out_dim from 6 to 1, respectivelly 
 # In the end you have the transition matrix summed over forward and reverse genome and all chromosomes (including the non-standard ones)
+# The matrix for the reverse genome is obtained analytically from the forward matrix considering the transposition and rev-compl transformation needed to define it
 in_dim = 3
 out_dim = 3
 Tmat = matrix(0, nrow = 4**in_dim, ncol = 4**out_dim)
