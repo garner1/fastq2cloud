@@ -10,11 +10,13 @@ from collections import Counter
 import os.path
 import pickle
 
-fastq_file = str(sys.argv[1])
+chunck = str(sys.argv[1])
+model_file = str(sys.argv[2])   # '/media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_3to3.csv'
+
 column_names = ['6mer','information']
-model = pd.read_csv('/media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_3to3.csv', sep=',', names=column_names)
+model = pd.read_csv(model_file, sep=',', names=column_names)
 column_names = ['read']
-reads = pd.read_csv(fastq_file, header=None, names=column_names)
+reads = pd.read_csv(chunck, header=None, names=column_names)
 sentences = []
 for index, row in reads.iterrows():
     kmers = pd.DataFrame([row['read'][i:i+6] for i in range(len(row['read'])-5)]) # the parameter 6 is due to in_dim+out_dim=3+3
@@ -54,7 +56,7 @@ for index, row in reads.iterrows():
         if len(dictionary) >= 2:
             sentences.append(dictionary)
 
-with open(fastq_file + "_sentences.txt", 'wb') as f:
+with open(chunck + "_sentences.txt", 'wb') as f:
     pickle.dump(sentences, f)
 f.close()
             

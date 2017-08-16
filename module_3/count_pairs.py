@@ -10,7 +10,6 @@ import numpy as np
 import scipy.sparse as sp
 
 file_name = str(sys.argv[1])    # ex: $datadir/segmented_chr??.dic
-
 corpus = pickle.load( open( file_name, "rb" ) )
 
 ###########################
@@ -21,12 +20,6 @@ corpus = pickle.load( open( file_name, "rb" ) )
 ##########################
 # counts = Counter(chain.from_iterable(combinations(sentence, 2) for sentence in corpus))
 counts = Counter(chain.from_iterable(combinations(set(sentence), 2) for sentence in corpus))
-
-# mat = sp.dok_matrix((9807,9807), dtype=np.int8)
-# for pair, value in counts.items():
-#     mat[pair[0],pair[1]] = value
-# print mat.shape
-##################################
 
 with open(file_name + "_counter.txt",'w') as f:
     for k,v in  counts.most_common():
