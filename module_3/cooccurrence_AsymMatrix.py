@@ -9,52 +9,44 @@ from numpy import *
 file_name = str(sys.argv[1])    # "$datadir"/corpus_summary/word1-word2-count-ind1-ind2
 dim = int(sys.argv[2])
 rank = int(sys.argv[3])
+datadir = str(sys.argv[4])
 
-# Initialize row, columns and data entries for the sparse matrix
-r = []
-c = []
-d = []
+
+coomat = dok_matrix((dim, dim), dtype=int)
 with open(file_name, 'rb') as infile:
     for line in infile:
         lista = line.strip().split('\t')
-        r.append(int(lista[3])-1) # minus 1 because python counts from 0
-        c.append(int(lista[4])-1)
-        d.append(int(lista[2]))
-coomat = coo_matrix((d, (r, c)), shape=(dim, dim),dtype=int) # sparse mat in coordinate format
+        coomat[int(lista[3])-1,int(lista[4])-1] = int(lista[2])
 
+print('Matrix built')
 D = coomat.nnz                                               # number of pairs
 rowsum = coomat.sum(axis=0)                                  # sum along rows
 colsum = coomat.sum(axis=1)                                  # sum along columns
-# Rebuild the matrix normalizing the entries
-r = []
-c = []
-d = []
+
+del(coomat)
+print('Matrix deleted')
+coomat = dok_matrix((dim, dim))
 with open(file_name, 'rb') as infile:
     for line in infile:
         lista = line.strip().split('\t')
-        r.append(int(lista[3])-1) 
-        c.append(int(lista[4])-1)
-        d.append(D*float(lista[2])*1.0/float(rowsum[0,int(lista[4])-1]*colsum[int(lista[3])-1,0]))
-coomat = coo_matrix((d, (r, c)), shape=(dim, dim),dtype=float) # sparse mat in coordinate format
-
-coomat = coomat + transpose(coomat)
+        data = log(D*float(lista[2])*1.0/float(rowsum[0,int(lista[4])-1]*colsum[int(lista[3])-1,0]))
+        if data > 0:
+            coomat[int(lista[3])-1,int(lista[4])-1] = data
+print('Matrix rebuilt')
+# coomat = coomat + transpose(coomat)
 # Build the PMI:
-coomat.data = ma.log(coomat.data) #use ma library to mask invalid values
+# coomat.data = ma.log(coomat.data) #use ma library to mask invalid values, like log(0)
 # Build the PPMI:
-coomat.data = ma.masked_less(coomat.data, 0) # mask values less than 0
+# coomat.data = ma.masked_less(coomat.data, 0) # mask values less than 0
 
 [u,s,vt] = svds(coomat, rank, which='LM', return_singular_vectors=True)
 
-u.dump("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/U.dat")
-# u = load("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/u.dat")
-s.dump("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/S.dat")
-# s = load("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/S.dat")
-vt.dump("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/Vt.dat")
-# vt = load("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/Vt.dat")
-
-# savetxt(file_name + '_U.txt', u, fmt='%1.4e')
-# savetxt(file_name + '_S.txt', s, fmt='%1.4e')
-# savetxt(file_name + '_Vt.txt', transpose(vt), fmt='%1.4e') # useless because symm
+u.dump(datadir+"/corpus_summary/U.dat")
+# u = load(datadir+"/corpus_summary/u.dat")
+s.dump(datadir+"/corpus_summary/S.dat")
+# s = load(datadir+"/corpus_summary/S.dat")
+vt.dump(datadir+"/corpus_summary/Vt.dat")
+# vt = load(datadir+"/corpus_summary/Vt.dat")
 
 # import matplotlib.pyplot as plt
 # from mpl_toolkits.mplot3d import Axes3D

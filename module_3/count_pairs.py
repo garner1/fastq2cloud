@@ -20,10 +20,13 @@ corpus = pickle.load( open( file_name, "rb" ) )
 # BUT the set type will remove the diagonal counts. 
 # Keeping the list as is will count diagonals and in addition will remember the order of the word1-word2 pairs, originating a non-symmetric co-occurrence matrix, which might be OK
 ##########################
+# chain.from_iterable(['ABC', 'DEF']) --> A B C D E F
+# combinations('ABCD', 2) --> AB AC AD BC BD CD
+
 counts = Counter(chain.from_iterable(combinations(sentence, 2) for sentence in corpus))
 # counts = Counter(chain.from_iterable(combinations(set(sentence), 2) for sentence in corpus))
 
 with open(file_name + "_counter.txt",'w') as f:
-    for k,v in  counts_offdiag.most_common():
+    for k,v in  counts.most_common():
         f.write( "{} {}\n".format(k,v) )
 
