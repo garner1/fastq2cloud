@@ -45,52 +45,59 @@ coomat.data = ma.masked_less(coomat.data, 0) # mask values less than 0
 
 [u,s,vt] = svds(coomat, rank, which='LM', return_singular_vectors=True)
 
+u.dump("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/U.dat")
+# u = load("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/u.dat")
+s.dump("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/S.dat")
+# s = load("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/S.dat")
+vt.dump("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/Vt.dat")
+# vt = load("/home/garner1/Work/dataset/fastq2cloud/corpus_summary/Vt.dat")
+
 # savetxt(file_name + '_U.txt', u, fmt='%1.4e')
 # savetxt(file_name + '_S.txt', s, fmt='%1.4e')
 # savetxt(file_name + '_Vt.txt', transpose(vt), fmt='%1.4e') # useless because symm
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-elements = random.choice(dim,(1000,1),replace=True) # pick 1000 random points to plot
-x = u[elements,0]*sqrt(s[0])
-y = u[elements,1]*sqrt(s[1])
-z = u[elements,2]*sqrt(s[2])
-# x = u[:,0]*sqrt(s[0])
-# y = u[:,1]*sqrt(s[1])
-# z = u[:,2]*sqrt(s[2])
-
-ax.set_title(file_name)
-ax.set_xlabel('X Label')
-ax.set_ylabel('Y Label')
-ax.set_zlabel('Z Label')
-ax.set_xlim([-0.1,+0.1])
-ax.set_ylim([-0.1,+0.1])
-ax.set_zlim([0.0,+0.1])
-ax.scatter(x, y, z)
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
 
 # fig = plt.figure()
-# ax = fig.add_subplot(111)
+# ax = fig.add_subplot(111, projection='3d')
+# elements = random.choice(dim,(1000,1),replace=True) # pick 1000 random points to plot
+# x = u[elements,0]*sqrt(s[0])
+# y = u[elements,1]*sqrt(s[1])
+# z = u[elements,2]*sqrt(s[2])
 # # x = u[:,0]*sqrt(s[0])
 # # y = u[:,1]*sqrt(s[1])
 # # z = u[:,2]*sqrt(s[2])
-# # elements = random.choice(dim,(10000,1),replace=True) # pick 1000 random points to plot
-# # x = u[elements,0]*sqrt(s[0])
-# # y = u[elements,1]*sqrt(s[1])
-# x = u[:,0]*sqrt(s[0])
-# y = u[:,1]*sqrt(s[1])
+
 # ax.set_title(file_name)
 # ax.set_xlabel('X Label')
 # ax.set_ylabel('Y Label')
-# ax.scatter(x, y)
+# ax.set_zlabel('Z Label')
+# ax.set_xlim([-0.1,+0.1])
+# ax.set_ylim([-0.1,+0.1])
+# ax.set_zlim([0.0,+0.1])
+# ax.scatter(x, y, z)
+
+# # fig = plt.figure()
+# # ax = fig.add_subplot(111)
+# # # x = u[:,0]*sqrt(s[0])
+# # # y = u[:,1]*sqrt(s[1])
+# # # z = u[:,2]*sqrt(s[2])
+# # # elements = random.choice(dim,(10000,1),replace=True) # pick 1000 random points to plot
+# # # x = u[elements,0]*sqrt(s[0])
+# # # y = u[elements,1]*sqrt(s[1])
+# # x = u[:,0]*sqrt(s[0])
+# # y = u[:,1]*sqrt(s[1])
+# # ax.set_title(file_name)
+# # ax.set_xlabel('X Label')
+# # ax.set_ylabel('Y Label')
+# # ax.scatter(x, y)
 
 
-# # import seaborn as sns; sns.set(color_codes=True)
-# # ax = sns.regplot(x,y,fit_reg=False)
-# # x=range(rank)
-# # ax = sns.regplot(array(x),array(s),fit_reg=False)
+# # # import seaborn as sns; sns.set(color_codes=True)
+# # # ax = sns.regplot(x,y,fit_reg=False)
+# # # x=range(rank)
+# # # ax = sns.regplot(array(x),array(s),fit_reg=False)
 
-plt.show()
-# # plt.savefig(file_name+'.pdf')
+# plt.show()
+# # # plt.savefig(file_name+'.pdf')
