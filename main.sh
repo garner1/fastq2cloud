@@ -42,7 +42,7 @@ echo 'Parse corpus ...'
 corpus="$datadir"/corpus/*
 mkdir -p "$datadir"/corpus_summary
 parallel "cat {} | LC_ALL=C grep \"'\" | cut -d\"'\" -f2|LC_ALL=C sort |LC_ALL=C uniq -c |awk '{print \$2,\$1}'|tr ' ' '\t' > {.}.counts" ::: "$datadir"/corpus/chunck_*_sentences.txt
-cat "$datadir"/corpus/chunck_*_sentences.counts | datamash -s groupby 1 sum 2 > "$datadir"/corpus_summary/word_counts.tsv
+cat "$datadir"/corpus/chunck_*_sentences.counts | datamash --sort groupby 1 sum 2 > "$datadir"/corpus_summary/word-counts.tsv
 cat $corpus | grep "'" | tr -d '^a' | tr -d '^S' | LC_ALL=C sort -u | 
 cat -n | awk '{OFS="\t";print$1,$2}'|LC_ALL=C sort -k2,2 | tr -d "'" > "$datadir"/corpus_summary/corpus__ind-word.tsv
 echo 'Done'
@@ -53,7 +53,7 @@ mv "$datadir"/corpus/*_counter.txt "$datadir"/corpus_summary
 echo 'Done'
 
 echo 'Parse cooccurrences ...'
-cat "$datadir"/corpus_summary/*_counter.txt | tr -d "(),'" | datamash -t' ' --sort --group 1,2 sum 3 | tr ' ' '\t' | 
+cat "$datadir"/corpus_summary/*_counter.txt | tr -d "(),'" | datamash -t' ' --sort groupby 1,2 sum 3 | tr ' ' '\t' | 
 LC_ALL=C sort -k1,1  > "$datadir"/corpus_summary/word1-word2-count
 
 LC_ALL=C join -1 1 -2 2 -o 1.1 1.2 1.3 2.1 "$datadir"/corpus_summary/word1-word2-count "$datadir"/corpus_summary/corpus__ind-word.tsv |
@@ -63,11 +63,11 @@ LC_ALL=C join -1 2 -2 2 -o 1.1 1.2 1.3 1.4 2.1 "$datadir"/corpus_summary/word1-w
 tr ' ' '\t' > "$datadir"/corpus_summary/word1-word2-count-ind1-ind2
 echo 'Done'
 
-echo 'Build cooccurrence matrix ...'
-dim=`cat "$datadir"/corpus_summary/corpus__ind-word.tsv | wc -l`
-rank=2
-time python "$bindir"/module_3/cooccurrence_AsymMatrix.py  "$datadir"/corpus_summary/word1-word2-count-ind1-ind2 $dim $rank $datadir
-echo 'Done'
+# echo 'Build cooccurrence matrix ...'
+# dim=`cat "$datadir"/corpus_summary/corpus__ind-word.tsv | wc -l`
+# rank=2
+# time python "$bindir"/module_3/cooccurrence_AsymMatrix.py  "$datadir"/corpus_summary/word1-word2-count-ind1-ind2 $dim $rank $datadir
+# echo 'Done'
 
 ####################
 # echo 'Run gensim word2vec implementation ...'
