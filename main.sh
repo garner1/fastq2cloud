@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 fastq=$1			# full path to the input fastq.gz file
-chunkSize=$2			# how many reads per chunk
+chunkSize=$2			# how many lines per chunk (keep it < 50K or you will have memory issues while counting pairs)
 bindir=/home/garner1/Work/pipelines/fastq2cloud
 exp=`echo $fastq | rev | cut -d'/' -f1 | rev | cut -d'.' -f1`
 datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
@@ -41,6 +41,7 @@ echo "Done"
 echo 'Parse corpus ...'
 corpus="$datadir"/corpus/*
 mkdir -p "$datadir"/corpus_summary
+rm -f "$datadir"/corpus_summary/*
 parallel "cat {} | LC_ALL=C grep \"'\" | cut -d\"'\" -f2|LC_ALL=C sort |LC_ALL=C uniq -c |awk '{print \$2,\$1}'|tr ' ' '\t' > {.}.counts" ::: "$datadir"/corpus/chunck_*_sentences.txt
 cat "$datadir"/corpus/chunck_*_sentences.counts | datamash --sort groupby 1 sum 2 > "$datadir"/corpus_summary/word-counts.tsv
 cat $corpus | grep "'" | tr -d '^a' | tr -d '^S' | LC_ALL=C sort -u | 
@@ -61,7 +62,20 @@ tr ' ' '\t'|LC_ALL=C sort -k2,2 > "$datadir"/corpus_summary/word1-word2-count-in
 
 LC_ALL=C join -1 2 -2 2 -o 1.1 1.2 1.3 1.4 2.1 "$datadir"/corpus_summary/word1-word2-count-ind1 "$datadir"/corpus_summary/corpus__ind-word.tsv | 
 tr ' ' '\t' > "$datadir"/corpus_summary/word1-word2-count-ind1-ind2
+
+threshold_repeat=`cat "$datadir"/corpus_summary/word1-word2-count-ind1-ind2 | datamash --sort groupby 1 sum 3 | datamash --sort groupby 2 count 1 | datamash -f max 2 | cut -f1`
+time cat "$datadir"/corpus_summary/word-counts.tsv | awk -v t=$threshold_repeat '$2<t' | cut -f1 |
+parallel --pipe -L1000 --round-robin --compress grep -wFf - "$datadir"/corpus_summary/word1-word2-count-ind1-ind2 | LC_ALL=C sort -u > "$datadir"/corpus_summary/sparse_word1-word2-count-ind1-ind2
+time LC_ALL=C comm -2 -3 <(LC_ALL=C sort "$datadir"/corpus_summary/word1-word2-count-ind1-ind2) <(LC_ALL=C sort $datadir/corpus_summary/sparse_word1-word2-count-ind1-ind2) > $datadir/corpus_summary/dense_word1-word2-count-ind1-ind2
+
 echo 'Done'
+###################################
+# Before building the co-occurrence matrix it is important to think about the usefulness of filtering the corpus. 
+# By plotting ##w vs #w (i.e.: numb of words which are repeated #w times, for different #w) we see a max value in ##w. 
+# The correspoding #v value can be chosen as an automated threshold to separate a sparser regime (left of #w) from a less sparse regime (rigth of #w) in the co-occurrence matrix: M = S+D
+
+# The two matrices S and D can be analyzed separately
+######################################
 
 # echo 'Build cooccurrence matrix ...'
 # dim=`cat "$datadir"/corpus_summary/corpus__ind-word.tsv | wc -l`
@@ -73,3 +87,8 @@ echo 'Done'
 # echo 'Run gensim word2vec implementation ...'
 # python ./module_3/word2vector.py "$datadir"/corpus
 # echo 'Done!
+###########################################
+# cat "$datadir"/corpus_summary/word-counts.tsv | awk -v t=$threshold_repeat '$2<t' | cut -f1 | split -l 1000 --additional-suffix=.input - "$datadir"/corpus_summary/sparse_vocabulary_
+# cat $datadir/corpus_summary/word1-word2-count-ind1-ind2 | parallel 'grep -f {} - > {.}.output' ::: "$datadir"/corpus_summary/sparse_vocabulary_*.input
+# cat "$datadir"/corpus_summary/sparse_vocabulary_*.output | LC_ALL=C sort -u > "$datadir"/corpus_summary/sparse_word1-word2-count-ind1-ind2
+# rm -f "$datadir"/corpus_summary/sparse_vocabulary_*
