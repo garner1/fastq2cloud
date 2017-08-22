@@ -15,4 +15,6 @@ for file_name in filepaths:
     blocks.append(dtm)
 
 dtm = vstack(blocks)
-print(dtm.nnz)
+
+with open(mypath + "/DTM.pickle", 'wb') as f:
+    pickle.dump(dtm, f)

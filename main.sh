@@ -22,8 +22,9 @@ mkdir -p "$datadir"/chuncks
 rm -f "$datadir"/chuncks/*
 chuncksPrefix="$datadir"/chuncks/chunck_
 rm -f "$chuncksPrefix"*
-time bash ./module_2/parse_fastq.sh $fastq $chunkSize $chuncksPrefix
+time bash $bindir/module_2/parse_fastq.sh $fastq $chunkSize $chuncksPrefix
 echo "Done"
+echo "######"
 
 # These are pickle files TO BE USED IN GENSIM WORD2VEC sequentially, do not concatenate with cat
 echo "Prepare corpus ..."	
@@ -31,44 +32,50 @@ model=/media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_3to3.csv
 echo $chuncks
 time parallel python $bindir/module_2/create_corpus.py {} $model ::: "$datadir"/chuncks/chunck_*
 echo "Done"
+echo "######"
 
-echo "Move corpus into specific directory"
+echo "Move corpus into specific directory and make the vocabulary"
 mkdir -p "$datadir"/corpus
 rm -f "$datadir"/corpus/*
 mv "$chuncksPrefix"*_sentences.txt "$datadir"/corpus
-echo "Done"
-
-echo 'Parse corpus ...'
-corpus="$datadir"/corpus/*
 mkdir -p "$datadir"/corpus_summary
 rm -f "$datadir"/corpus_summary/*
-parallel "cat {} | LC_ALL=C grep \"'\" | cut -d\"'\" -f2|LC_ALL=C sort |LC_ALL=C uniq -c |awk '{print \$2,\$1}'|tr ' ' '\t' > {.}.counts" ::: "$datadir"/corpus/chunck_*_sentences.txt
-cat "$datadir"/corpus/chunck_*_sentences.counts | datamash --sort groupby 1 sum 2 > "$datadir"/corpus_summary/word-counts.tsv
-cat $corpus | grep "'" | tr -d '^a' | tr -d '^S' | LC_ALL=C sort -u | 
-cat -n | awk '{OFS="\t";print$1,$2}'|LC_ALL=C sort -k2,2 | tr -d "'" > "$datadir"/corpus_summary/corpus__ind-word.tsv
+corpus="$datadir"/corpus/*
+time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort -u > "$datadir"/corpus_summary/vocabulary.txt
 echo 'Done'
+echo "######"
 
-echo 'Count pairs ...'
-time parallel python "$bindir"/module_3/count_pairs.py {} ::: "$datadir"/corpus/*_sentences.txt 
-mv "$datadir"/corpus/*_counter.txt "$datadir"/corpus_summary
+echo 'Build the Document by Term matrix ...'
+time parallel python "$bindir"/module_3/termDocumentMatrix.py {} "$datadir"/corpus_summary/vocabulary.txt ::: "$datadir"/corpus/*_sentences.txt 
+mkdir -p "$datadir"/pickle
+rm -f "$datadir"/pickle/*
+mv "$datadir"/corpus/*_sparseDocTermMat.pickle "$datadir"/pickle
+time python $bindir/module_3/mergeDocTermMat.py "$datadir"/pickle
+rm -f "$datadir"/pickle/chunck*pickle
 echo 'Done'
+echo "######"
 
-echo 'Parse cooccurrences ...'
-cat "$datadir"/corpus_summary/*_counter.txt | tr -d "(),'" | datamash -t' ' --sort groupby 1,2 sum 3 | tr ' ' '\t' | 
-LC_ALL=C sort -k1,1  > "$datadir"/corpus_summary/word1-word2-count
-
-LC_ALL=C join -1 1 -2 2 -o 1.1 1.2 1.3 2.1 "$datadir"/corpus_summary/word1-word2-count "$datadir"/corpus_summary/corpus__ind-word.tsv |
-tr ' ' '\t'|LC_ALL=C sort -k2,2 > "$datadir"/corpus_summary/word1-word2-count-ind1
-
-LC_ALL=C join -1 2 -2 2 -o 1.1 1.2 1.3 1.4 2.1 "$datadir"/corpus_summary/word1-word2-count-ind1 "$datadir"/corpus_summary/corpus__ind-word.tsv | 
-tr ' ' '\t' > "$datadir"/corpus_summary/word1-word2-count-ind1-ind2
-
-threshold_repeat=`cat "$datadir"/corpus_summary/word1-word2-count-ind1-ind2 | datamash --sort groupby 1 sum 3 | datamash --sort groupby 2 count 1 | datamash -f max 2 | cut -f1`
-time cat "$datadir"/corpus_summary/word-counts.tsv | awk -v t=$threshold_repeat '$2<t' | cut -f1 |
-parallel --pipe -L1000 --round-robin --compress grep -wFf - "$datadir"/corpus_summary/word1-word2-count-ind1-ind2 | LC_ALL=C sort -u > "$datadir"/corpus_summary/sparse_word1-word2-count-ind1-ind2
-time LC_ALL=C comm -2 -3 <(LC_ALL=C sort "$datadir"/corpus_summary/word1-word2-count-ind1-ind2) <(LC_ALL=C sort $datadir/corpus_summary/sparse_word1-word2-count-ind1-ind2) > $datadir/corpus_summary/dense_word1-word2-count-ind1-ind2
-
+echo 'Build the co-occurrence matrix ...'
+# The total number of docs can be < than the initial numb of reads because some reads might contain too few words
+time python $bindir/module_3/cooccurrenceMat.py "$datadir"/pickle/DTM.pickle
 echo 'Done'
+echo "######"
+
+# cat "$datadir"/corpus_summary/*_counter.txt | tr -d "(),'" | datamash -t' ' --sort groupby 1,2 sum 3 | tr ' ' '\t' | 
+# LC_ALL=C sort -k1,1  > "$datadir"/corpus_summary/word1-word2-count
+
+# LC_ALL=C join -1 1 -2 2 -o 1.1 1.2 1.3 2.1 "$datadir"/corpus_summary/word1-word2-count "$datadir"/corpus_summary/corpus__ind-word.tsv |
+# tr ' ' '\t'|LC_ALL=C sort -k2,2 > "$datadir"/corpus_summary/word1-word2-count-ind1
+
+# LC_ALL=C join -1 2 -2 2 -o 1.1 1.2 1.3 1.4 2.1 "$datadir"/corpus_summary/word1-word2-count-ind1 "$datadir"/corpus_summary/corpus__ind-word.tsv | 
+# tr ' ' '\t' > "$datadir"/corpus_summary/word1-word2-count-ind1-ind2
+
+# threshold_repeat=`cat "$datadir"/corpus_summary/word1-word2-count-ind1-ind2 | datamash --sort groupby 1 sum 3 | datamash --sort groupby 2 count 1 | datamash -f max 2 | cut -f1`
+# time cat "$datadir"/corpus_summary/word-counts.tsv | awk -v t=$threshold_repeat '$2<t' | cut -f1 |
+# parallel --pipe -L1000 --round-robin --compress grep -wFf - "$datadir"/corpus_summary/word1-word2-count-ind1-ind2 | LC_ALL=C sort -u > "$datadir"/corpus_summary/sparse_word1-word2-count-ind1-ind2
+# time LC_ALL=C comm -2 -3 <(LC_ALL=C sort "$datadir"/corpus_summary/word1-word2-count-ind1-ind2) <(LC_ALL=C sort $datadir/corpus_summary/sparse_word1-word2-count-ind1-ind2) > $datadir/corpus_summary/dense_word1-word2-count-ind1-ind2
+
+# echo 'Done'
 ###################################
 # Before building the co-occurrence matrix it is important to think about the usefulness of filtering the corpus. 
 # By plotting ##w vs #w (i.e.: numb of words which are repeated #w times, for different #w) we see a max value in ##w. 

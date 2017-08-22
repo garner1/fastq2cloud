@@ -56,8 +56,9 @@ for index, row in reads.iterrows():
         if len(dictionary) >= 2:
             sentences.append(dictionary)
 
-with open(chunck + "_sentences.txt", 'wb') as f:
-    pickle.dump(sentences, f)
-f.close()
+thefilename = open(chunck + "_sentences.txt",'wb')
+for item in sentences:
+    thefilename.write("%s\n" % item)    
+thefilename.close()
             
 

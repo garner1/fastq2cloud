@@ -29,8 +29,5 @@ X = vectorizer.fit_transform(docs)
 with open(file_name + "_sparseDocTermMat.pickle", 'wb') as f:
     pickle.dump(X, f)
 
-# print(X.nnz)
-# print(np.shape(X))
-# print(np.shape(vocabulary))
 
 
