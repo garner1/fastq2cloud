@@ -9,7 +9,7 @@ datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
 echo 'Running ' $exp ' with output files in ' $datadir
 
 # echo "Create MC model ..." 	# approx 4m to run
-# Rscript "$bindir"/module_1/MC_model_from_fasta.R
+# Rscript "$bindir"/segmentation/MC_model_from_fasta.R
 
 # # GENERATE FASTQ FILES USING NEAT OR VARSIM_RUN                                                                                                                                              
 # # !!! check directories and parameters !!!!                                                                                                                                                 
@@ -22,7 +22,7 @@ mkdir -p "$datadir"/chuncks
 rm -f "$datadir"/chuncks/*
 chuncksPrefix="$datadir"/chuncks/chunck_
 rm -f "$chuncksPrefix"*
-time bash $bindir/module_2/parse_fastq.sh $fastq $chunkSize $chuncksPrefix
+time bash $bindir/corpus/parse_fastq.sh $fastq $chunkSize $chuncksPrefix
 echo "Done"
 echo "######"
 
@@ -30,7 +30,7 @@ echo "######"
 echo "Prepare corpus ..."	
 model=/media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_3to3.csv
 echo $chuncks
-time parallel python $bindir/module_2/create_corpus.py {} $model ::: "$datadir"/chuncks/chunck_*
+time parallel python $bindir/corpus/create_corpus.py {} $model ::: "$datadir"/chuncks/chunck_*
 echo "Done"
 echo "######"
 
@@ -46,18 +46,18 @@ echo 'Done'
 echo "######"
 
 echo 'Build the Document by Term matrix ...'
-time parallel python "$bindir"/module_3/termDocumentMatrix.py {} "$datadir"/corpus_summary/vocabulary.txt ::: "$datadir"/corpus/*_sentences.txt 
+time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"/corpus_summary/vocabulary.txt ::: "$datadir"/corpus/*_sentences.txt 
 mkdir -p "$datadir"/pickle
 rm -f "$datadir"/pickle/*
 mv "$datadir"/corpus/*_sparseDocTermMat.pickle "$datadir"/pickle
-time python $bindir/module_3/mergeDocTermMat.py "$datadir"/pickle
+time python $bindir/structure/mergeDocTermMat.py "$datadir"/pickle
 rm -f "$datadir"/pickle/chunck*pickle
 echo 'Done'
 echo "######"
 
 echo 'Build the co-occurrence matrix ...'
 # The total number of docs can be < than the initial numb of reads because some reads might contain too few words
-time python $bindir/module_3/cooccurrenceMat.py "$datadir"/pickle/DTM.pickle
+time python $bindir/structure/cooccurrenceMat.py "$datadir"/pickle/DTM.pickle
 echo 'Done'
 echo "######"
 
@@ -87,12 +87,12 @@ echo "######"
 # echo 'Build cooccurrence matrix ...'
 # dim=`cat "$datadir"/corpus_summary/corpus__ind-word.tsv | wc -l`
 # rank=2
-# time python "$bindir"/module_3/cooccurrence_AsymMatrix.py  "$datadir"/corpus_summary/word1-word2-count-ind1-ind2 $dim $rank $datadir
+# time python "$bindir"/structure/cooccurrence_AsymMatrix.py  "$datadir"/corpus_summary/word1-word2-count-ind1-ind2 $dim $rank $datadir
 # echo 'Done'
 
 ####################
 # echo 'Run gensim word2vec implementation ...'
-# python ./module_3/word2vector.py "$datadir"/corpus
+# python ./structure/word2vector.py "$datadir"/corpus
 # echo 'Done!
 ###########################################
 # cat "$datadir"/corpus_summary/word-counts.tsv | awk -v t=$threshold_repeat '$2<t' | cut -f1 | split -l 1000 --additional-suffix=.input - "$datadir"/corpus_summary/sparse_vocabulary_
