@@ -12,7 +12,6 @@ import pickle
 
 chunck = str(sys.argv[1])
 model_file = str(sys.argv[2])   # '/media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_3to3.csv'
-
 column_names = ['6mer','information']
 model = pd.read_csv(model_file, sep=',', names=column_names)
 column_names = ['read']

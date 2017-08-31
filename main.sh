@@ -1,38 +1,58 @@
 #!/usr/bin/env bash
 
-fastq=$1			# full path to the input fastq.gz file
-chunkSize=$2			# how many lines per chunk (keep it < 50K or you will have memory issues while counting pairs)
 bindir=/home/garner1/Work/pipelines/fastq2cloud
-exp=`echo $fastq | rev | cut -d'/' -f1 | rev | cut -d'.' -f1`
-datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
 
-echo 'Running ' $exp ' with output files in ' $datadir
+# If the fastq file already exist provide its location and the numb of reads per file to be processed
+if [ $# -eq 2 ]; then
+    fastq=$1			# full path to the input fastq.gz file
+    exp=`echo $fastq | rev | cut -d'/' -f1 | rev | cut -d'.' -f1`
+    datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
+    echo 'Running ' $exp ' with output files in ' $datadir
 
-# echo "Create MC model ..." 	# approx 4m to run
-# Rscript "$bindir"/segmentation/MC_model_from_fasta.R
+    echo "Create MC model ..." 	# approx 4m to run
+    Rscript "$bindir"/segmentation/MC_model_from_fastq.R $fastq
+    echo "Done"
 
-# # GENERATE FASTQ FILES USING NEAT OR VARSIM_RUN                                                                                                                                              
-# # !!! check directories and parameters !!!!                                                                                                                                                 
-# # parallel "python ~/tools/neat-genreads/genReads.py -r ~/igv/genomes/hg19.fasta -R 50 -o ~/Work/dataset/genome_segmentation/simulated_data -c 1 --job {} 32" ::: `seq 32`
-# # python ~/tools/neat-genreads/mergeJobs.py -i  /home/garner1/tool_test/neat -o  /home/garner1/tool_test -s ~/tools/samtools-1.2
+    echo "Preapare reads ..."
+    mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
+    chuncksPrefix="$datadir"/chuncks/chunck_ && rm -f "$chuncksPrefix"*
+    linesperfile=$2
+    time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
+    echo "Done"
+fi
 
-# FASTQ.gz TO READS
-echo "Preapare reads ..."
-mkdir -p "$datadir"/chuncks
-rm -f "$datadir"/chuncks/*
-chuncksPrefix="$datadir"/chuncks/chunck_
-rm -f "$chuncksPrefix"*
-time bash $bindir/corpus/parse_fastq.sh $fastq $chunkSize $chuncksPrefix
-echo "Done"
-echo "######"
+# If the fastq file does not exist only provide the random seed
+if [ $# -eq 1 ]; then
+    exp="simseq_1X_hg19_rs"$1
+    datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
+    echo 'Running ' $exp ' with output files in ' $datadir
+    echo "Simulate sequencing ..."
+    # parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs 0 -ss HS25 -i {} -o {.}.1X_SE -l 150 -c 100 ::: ~/igv/genomes/hg19_byChromosome/chr{?,??}.fasta #with -c numb of reads
+    parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs $1 -ss HS25 -i {} -o {.}.1X_SE -l 150 -f 1 ::: ~/igv/genomes/hg19_byChromosome/chr{?,??}.fasta #with -f coverage
+    mkdir -p $datadir/fastq && rm -f $datadir/fastq/*
+    mv ~/igv/genomes/hg19_byChromosome/*.{fq,aln} $datadir/fastq && rm -f $datadir/fastq/merged.fq
+    cat $datadir/fastq/*.fq > $datadir/fastq/merged.fq
+    parallel gzip {} ::: $datadir/fastq/chr*
+    echo "Done"
 
-# These are pickle files TO BE USED IN GENSIM WORD2VEC sequentially, do not concatenate with cat
+    echo "Preapare reads ..."
+    mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
+    chuncksPrefix="$datadir"/chuncks/chunck_ && rm -f "$chuncksPrefix"*
+    linesperfile=50000
+    fastq="$datadir"/fastq/merged.fq
+    time bash $bindir/corpus/parse_fastq_2.sh $fastq $linesperfile $chuncksPrefix
+    echo "Done"
+
+    echo "Create MC model ..."
+    Rscript "$bindir"/segmentation/MC_model_from_fastq.R $fastq
+    echo "Done"
+fi
+
 echo "Prepare corpus ..."	
-model=/media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_3to3.csv
-echo $chuncks
+mv /media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_fromFastq_3to3.csv $datadir
+model=$datadir/transitionMatrix_fromFastq_3to3.csv
 time parallel python $bindir/corpus/create_corpus.py {} $model ::: "$datadir"/chuncks/chunck_*
 echo "Done"
-echo "######"
 
 echo "Move corpus into specific directory and make the vocabulary"
 mkdir -p "$datadir"/corpus
@@ -41,9 +61,9 @@ mv "$chuncksPrefix"*_sentences.txt "$datadir"/corpus
 mkdir -p "$datadir"/corpus_summary
 rm -f "$datadir"/corpus_summary/*
 corpus="$datadir"/corpus/*
-time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort -u > "$datadir"/corpus_summary/vocabulary.txt
+time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c > "$datadir"/corpus_summary/count_word.txt
+awk '{print $2}' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/vocabulary.txt
 echo 'Done'
-echo "######"
 
 echo 'Build the Document by Term matrix ...'
 time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"/corpus_summary/vocabulary.txt ::: "$datadir"/corpus/*_sentences.txt 
@@ -53,14 +73,13 @@ mv "$datadir"/corpus/*_sparseDocTermMat.pickle "$datadir"/pickle
 time python $bindir/structure/mergeDocTermMat.py "$datadir"/pickle
 rm -f "$datadir"/pickle/chunck*pickle
 echo 'Done'
-echo "######"
 
 echo 'Build the co-occurrence matrix ...'
 # The total number of docs can be < than the initial numb of reads because some reads might contain too few words
 time python $bindir/structure/cooccurrenceMat.py "$datadir"/pickle/DTM.pickle
 echo 'Done'
-echo "######"
 
+#######################################################
 # cat "$datadir"/corpus_summary/*_counter.txt | tr -d "(),'" | datamash -t' ' --sort groupby 1,2 sum 3 | tr ' ' '\t' | 
 # LC_ALL=C sort -k1,1  > "$datadir"/corpus_summary/word1-word2-count
 

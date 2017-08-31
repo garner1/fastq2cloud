@@ -1,12 +1,14 @@
 library(Biostrings)
+library(data.table)  
 
 # Set the dimensions of the MC model 
 in_dim = 3
 out_dim = 3
   
 # Specify the input fastq file
-filename = "~/Work/dataset/genome_segmentation/simulated_data_read1.fq"
-seq = readDNAStringSet(filename, format="fastq")
+# filename = "/home/garner1/Work/dataset/fastq2cloud/test1K.fastq.gz"
+args = commandArgs(trailingOnly=TRUE)
+seq = readDNAStringSet(args[1], format="fastq")
 
 # Build the MC homogeneous transition matrix
 Tmat = oligonucleotideTransitions(seq, left = in_dim, right = out_dim, as.prob = FALSE)
@@ -29,4 +31,6 @@ for(row in 1:4**in_dim){
 df <- data.frame(key,value) #THERE MIGHT BE INFINITE VALUES DUE TO DIVISION BY 0
 filename <- paste("/media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_fromFastq_",as.character(in_dim),"to",as.character(out_dim),".csv", sep = '')
 fwrite(x=df, file=filename, append=FALSE, row.names=TRUE)
+
+
 
