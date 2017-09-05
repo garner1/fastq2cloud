@@ -16,7 +16,7 @@ if [ $# -eq 2 ]; then
     echo "Preapare reads ..."
     mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
     chuncksPrefix="$datadir"/chuncks/chunck_ && rm -f "$chuncksPrefix"*
-    linesperfile=$2
+    linesperfile=$2		# numb of lines per chunk
     time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
     echo "Done"
 fi
@@ -49,7 +49,7 @@ if [ $# -eq 1 ]; then
 fi
 
 echo "Prepare corpus ..."	
-mv /media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_fromFastq_3to3.csv $datadir
+mv /home/garner1/Work/dataset/fastq2cloud/transitionMatrix_fromFastq_3to3.csv $datadir
 model=$datadir/transitionMatrix_fromFastq_3to3.csv
 time parallel python $bindir/corpus/create_corpus.py {} $model ::: "$datadir"/chuncks/chunck_*
 echo "Done"
@@ -61,8 +61,10 @@ mv "$chuncksPrefix"*_sentences.txt "$datadir"/corpus
 mkdir -p "$datadir"/corpus_summary
 rm -f "$datadir"/corpus_summary/*
 corpus="$datadir"/corpus/*
-time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c > "$datadir"/corpus_summary/count_word.txt
+time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c | awk '{print $1"\t"$2}' > "$datadir"/corpus_summary/count_word.txt
 awk '{print $2}' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/vocabulary.txt
+awk '{print $1}' "$datadir"/corpus_summary/count_word.txt | LC_ALL=C sort -nr|cat -n|awk '{print $1"\t"$2}'|
+datamash -s groupby 2 max 1 > "$datadir"/corpus_summary/rank_frequency.dat
 echo 'Done'
 
 echo 'Build the Document by Term matrix ...'
@@ -74,10 +76,10 @@ time python $bindir/structure/mergeDocTermMat.py "$datadir"/pickle
 rm -f "$datadir"/pickle/chunck*pickle
 echo 'Done'
 
-echo 'Build the co-occurrence matrix ...'
-# The total number of docs can be < than the initial numb of reads because some reads might contain too few words
-time python $bindir/structure/cooccurrenceMat.py "$datadir"/pickle/DTM.pickle
-echo 'Done'
+# echo 'Build the co-occurrence matrix ...'
+# # The total number of docs can be < than the initial numb of reads because some reads might contain too few words
+# time python $bindir/structure/cooccurrenceMat.py "$datadir"/pickle/DTM.pickle
+# echo 'Done'
 
 #######################################################
 # cat "$datadir"/corpus_summary/*_counter.txt | tr -d "(),'" | datamash -t' ' --sort groupby 1,2 sum 3 | tr ' ' '\t' | 

@@ -29,7 +29,7 @@ for(row in 1:4**in_dim){
 }
 
 df <- data.frame(key,value) #THERE MIGHT BE INFINITE VALUES DUE TO DIVISION BY 0
-filename <- paste("/media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_fromFastq_",as.character(in_dim),"to",as.character(out_dim),".csv", sep = '')
+filename <- paste("/home/garner1/Work/dataset/fastq2cloud/transitionMatrix_fromFastq_",as.character(in_dim),"to",as.character(out_dim),".csv", sep = '')
 fwrite(x=df, file=filename, append=FALSE, row.names=TRUE)
 
 
