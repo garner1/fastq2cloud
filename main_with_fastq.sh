@@ -1,52 +1,23 @@
 #!/usr/bin/env bash
 
+
+fastq=$1		# full path to the input fastq.gz file
+linesperfile=$2		# numb of lines per chunk
+
 bindir=/home/garner1/Work/pipelines/fastq2cloud
+exp=`echo $fastq | rev | cut -d'/' -f1 | rev | cut -d'.' -f1`
+datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
 
-# If the fastq file already exist provide its location and the numb of reads per file to be processed
-if [ $# -eq 2 ]; then
-    fastq=$1			# full path to the input fastq.gz file
-    exp=`echo $fastq | rev | cut -d'/' -f1 | rev | cut -d'.' -f1`
-    datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
-    echo 'Running ' $exp ' with output files in ' $datadir
+echo 'Running ' $exp ' with output files in ' $datadir
+echo "Create MC model ..." 	# approx 4m to run
+Rscript "$bindir"/segmentation/MC_model_from_fastq.R $fastq
+echo "Done"
 
-    echo "Create MC model ..." 	# approx 4m to run
-    Rscript "$bindir"/segmentation/MC_model_from_fastq.R $fastq
-    echo "Done"
-
-    echo "Preapare reads ..."
-    mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
-    chuncksPrefix="$datadir"/chuncks/chunck_ && rm -f "$chuncksPrefix"*
-    linesperfile=$2		# numb of lines per chunk
-    time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
-    echo "Done"
-fi
-
-# If the fastq file does not exist only provide the random seed
-if [ $# -eq 1 ]; then
-    exp="simseq_1X_hg19_rs"$1
-    datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
-    echo 'Running ' $exp ' with output files in ' $datadir
-    echo "Simulate sequencing ..."
-    # parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs 0 -ss HS25 -i {} -o {.}.1X_SE -l 150 -c 100 ::: ~/igv/genomes/hg19_byChromosome/chr{?,??}.fasta #with -c numb of reads
-    parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs $1 -ss HS25 -i {} -o {.}.1X_SE -l 150 -f 1 ::: ~/igv/genomes/hg19_byChromosome/chr{?,??}.fasta #with -f coverage
-    mkdir -p $datadir/fastq && rm -f $datadir/fastq/*
-    mv ~/igv/genomes/hg19_byChromosome/*.{fq,aln} $datadir/fastq && rm -f $datadir/fastq/merged.fq
-    cat $datadir/fastq/*.fq > $datadir/fastq/merged.fq
-    parallel gzip {} ::: $datadir/fastq/chr*
-    echo "Done"
-
-    echo "Preapare reads ..."
-    mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
-    chuncksPrefix="$datadir"/chuncks/chunck_ && rm -f "$chuncksPrefix"*
-    linesperfile=50000
-    fastq="$datadir"/fastq/merged.fq
-    time bash $bindir/corpus/parse_fastq_2.sh $fastq $linesperfile $chuncksPrefix
-    echo "Done"
-
-    echo "Create MC model ..."
-    Rscript "$bindir"/segmentation/MC_model_from_fastq.R $fastq
-    echo "Done"
-fi
+echo "Preapare reads ..."
+mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
+chuncksPrefix="$datadir"/chuncks/chunck_ && rm -f "$chuncksPrefix"*
+time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
+echo "Done"
 
 echo "Prepare corpus ..."	
 mv /home/garner1/Work/dataset/fastq2cloud/transitionMatrix_fromFastq_3to3.csv $datadir
@@ -61,20 +32,30 @@ mv "$chuncksPrefix"*_sentences.txt "$datadir"/corpus
 mkdir -p "$datadir"/corpus_summary
 rm -f "$datadir"/corpus_summary/*
 corpus="$datadir"/corpus/*
+
 time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c | awk '{print $1"\t"$2}' > "$datadir"/corpus_summary/count_word.txt
+bash ./functions/word_frequency.sh "$datadir"/corpus_summary/count_word.txt
+word_len_threshold=20		# filter-out words longer than this
+awk -v len=$word_len_threshold 'length($2) <= len' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/count_shortword.txt
+bash ./functions/word_frequency.sh "$datadir"/corpus_summary/count_shortword.txt
+
 awk '{print $2}' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/vocabulary.txt
 awk '{print $1}' "$datadir"/corpus_summary/count_word.txt | LC_ALL=C sort -nr|cat -n|awk '{print $1"\t"$2}'|
 datamash -s groupby 2 max 1 > "$datadir"/corpus_summary/rank_frequency.dat
+
+awk '{print length($1)}' "$datadir"/corpus_summary/vocabulary.txt | LC_ALL=C sort -n | LC_ALL=C uniq -c | 
+gnuplot -p -e 'set terminal pdf; set output "wordlen-freq.pdf";set logscale y; plot "/dev/stdin" using 2:1'
+mv wordlen-freq.pdf "$datadir"/corpus_summary
 echo 'Done'
 
-echo 'Build the Document by Term matrix ...'
-time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"/corpus_summary/vocabulary.txt ::: "$datadir"/corpus/*_sentences.txt 
-mkdir -p "$datadir"/pickle
-rm -f "$datadir"/pickle/*
-mv "$datadir"/corpus/*_sparseDocTermMat.pickle "$datadir"/pickle
-time python $bindir/structure/mergeDocTermMat.py "$datadir"/pickle
-rm -f "$datadir"/pickle/chunck*pickle
-echo 'Done'
+# echo 'Build the Document by Term matrix ...'
+# time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"/corpus_summary/vocabulary.txt $word_len_threshold ::: "$datadir"/corpus/*_sentences.txt 
+# mkdir -p "$datadir"/pickle
+# rm -f "$datadir"/pickle/*
+# mv "$datadir"/corpus/*_sparseDocTermMat.pickle "$datadir"/pickle
+# time python $bindir/structure/mergeDocTermMat.py "$datadir"/pickle
+# rm -f "$datadir"/pickle/chunck*pickle
+# echo 'Done'
 
 # echo 'Build the co-occurrence matrix ...'
 # # The total number of docs can be < than the initial numb of reads because some reads might contain too few words

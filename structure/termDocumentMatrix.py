@@ -10,20 +10,20 @@ import numpy as np
 import scipy.sparse as sp
 from sklearn.feature_extraction.text import CountVectorizer
 
-file_name = str(sys.argv[1])    # ex: $datadir/segmented_chr??.dic
+file_name = str(sys.argv[1])    # ex: "$datadir"/corpus/*_sentences.txt 
 
 docs = []
 with open(file_name,"rb") as f:
     for sentence in f:
         docs.append(sentence)
 
-voc = str(sys.argv[2])          # vocabulary txt file
+voc = str(sys.argv[2])          # "$datadir"/corpus_summary/vocabulary.txt
 vocabulary = []
 with open(voc) as f:
     for word in f:
         vocabulary.append(str(word).rstrip())
-
-vectorizer = CountVectorizer(lowercase=False,vocabulary=vocabulary)
+new_vocabulary = [x for x in vocabulary if len(x) <= int(sys.argv[3])] # filter-out long words
+vectorizer = CountVectorizer(lowercase=False,vocabulary=new_vocabulary)
 X = vectorizer.fit_transform(docs)
 
 with open(file_name + "_sparseDocTermMat.pickle", 'wb') as f:
