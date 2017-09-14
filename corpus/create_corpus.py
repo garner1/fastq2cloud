@@ -21,16 +21,16 @@ for index, row in reads.iterrows():
     kmers = pd.DataFrame([row['read'][i:i+6] for i in range(len(row['read'])-5)]) # the parameter 6 is due to in_dim+out_dim=3+3
     kmers.columns = ['6mer']
     infodata = kmers.merge(model, on='6mer', how='left')
-    loc = argrelextrema(infodata.values[:,1], np.greater) # find location of the maxima
+    loc = argrelextrema(infodata.values[:,1], np.greater) # FIND LOCATION OF THE MAXIMA
     max_df = infodata.iloc[loc]
     new_df = max_df.copy(deep=True)
     index_list = list(max_df.index.values)
-    for ind in range(len(index_list)-1):
+    for ind in range(len(index_list)-1): # COMPARE MAXIMA
         deltaLoc = index_list[ind+1] - index_list[ind]
         deltaInfo = float(max_df.loc[index_list[ind+1]]['information']) - float(max_df.loc[index_list[ind]]['information'])
-        if (deltaLoc <= 3) and (deltaInfo < 0) and (index_list[ind+1] in new_df.index):
+        if (deltaLoc <= 6) and (deltaInfo < 0) and (index_list[ind+1] in new_df.index): # 6=2*3 IS A PARAMETER WHICH SEEMS APPROPRIATE GIVEN THE MARKOV CHAIN MODEL DIMENSION OF 3X3
             new_df.drop(index_list[ind+1],inplace=True)
-        if (deltaLoc <= 3) and (deltaInfo >= 0) and (index_list[ind] in new_df.index):
+        if (deltaLoc <= 6) and (deltaInfo >= 0) and (index_list[ind] in new_df.index):
             new_df.drop(index_list[ind],inplace=True)
     maxima = list(new_df.index.values)
     if len(maxima)>3:
