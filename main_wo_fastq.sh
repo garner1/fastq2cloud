@@ -30,7 +30,8 @@ time bash $bindir/corpus/parse_fastq_2.sh $fastq $linesperfile $chuncksPrefix
 echo "Done"
 
 echo "Create MC model ..."
-Rscript "$bindir"/segmentation/MC_model_from_fastq.R $fastq
+dim=6
+Rscript "$bindir"/segmentation/MC_model_from_fastq.R $fastq $dim
 echo "Done"
 
 echo "Prepare corpus ..."	

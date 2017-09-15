@@ -1,14 +1,15 @@
 library(Biostrings)
 library(data.table)  
 
-# Set the dimensions of the MC model 
-in_dim = 3
-out_dim = 3
   
 # Specify the input fastq file
 # filename = "/home/garner1/Work/dataset/fastq2cloud/test1K.fastq.gz"
 args = commandArgs(trailingOnly=TRUE)
 seq = readDNAStringSet(args[1], format="fastq")
+
+# Set the dimensions of the MC model 
+in_dim = as.integer(args[2])
+out_dim = in_dim
 
 # Build the MC homogeneous transition matrix
 Tmat = oligonucleotideTransitions(seq, left = in_dim, right = out_dim, as.prob = FALSE)
