@@ -37,10 +37,13 @@ def thresholding_algo(y, lag, threshold, influence):
                 avgFilter = np.asarray(avgFilter), # list of local averages
                 stdFilter = np.asarray(stdFilter)) # list of local stds
 
+##########################################################################################################
 
 chunck = str(sys.argv[1])       # list of reads
 model_file = str(sys.argv[2])   # '/media/DS2415_seq/silvanog/Genome_segmentation/transitionMatrix_?to?.csv'
 dim = int(sys.argv[3])          # MC dimension
+keep_N = int(sys.argv[4])      # if True (1) randomly replace letter N; if False (0) discard read
+
 column_names = ['kmer','information']
 model = pd.read_csv(model_file, sep=',', names=column_names)
 
@@ -55,7 +58,6 @@ lag = 2*dim                     # window size where to consider local average an
 threshold = 1                   # above this consider it a stop word
 influence = 0.5                 # influence of the stop-word on the mooving average
 sentences = []
-keep_N = True                  # if True randomly replace letter N; if False discard read
 for index, row in reads.iterrows():
     if keep_N :
         read = row['read'].replace('N',random.choice(alphabet)) # random substitution of letter N (OR IS IT BETTER TO DISCARD THE READS?)
