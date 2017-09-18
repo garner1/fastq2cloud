@@ -3,6 +3,7 @@
 fastq=$1		# full path to the input fastq.gz file
 linesperfile=$2		# numb of lines per chunk: min{50000,#reads/20}
 dim=$3			# MC dimension parameter
+keep_N=$4		# 0 if you want to discard reads with N; 1 if you want to randomly replace them
 
 bindir=/home/garner1/Work/pipelines/fastq2cloud
 exp=`echo $fastq | rev | cut -d'/' -f1 | rev | cut -d'.' -f1`
@@ -22,7 +23,7 @@ echo "Done"
 echo "Prepare corpus ..."	
 mv /home/garner1/Work/dataset/fastq2cloud/transitionMatrix_fromFastq_"$dim"to"$dim".csv $datadir
 model=$datadir/transitionMatrix_fromFastq_"$dim"to"$dim".csv
-time parallel python $bindir/corpus/create_corpus.py {} $model $dim ::: "$datadir"/chuncks/chunck_*
+time parallel python $bindir/corpus/create_corpus.py {} $model $dim $keep_N ::: "$datadir"/chuncks/chunck_*
 echo "Done"
 
 echo "Move corpus into specific directory and make the vocabulary"

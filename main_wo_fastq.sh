@@ -7,6 +7,7 @@ rnd_seed=$1
 genome_dir=$2
 genome_name=$3
 coverage=$4
+keep_N=$4		# 0 if you want to discard reads with N; 1 if you want to randomly replace them
 
 exp="simseq_"$coverage"X_"$genome_name"_rs"$rnd_seed
 datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
@@ -37,7 +38,7 @@ echo "Done"
 echo "Prepare corpus ..."	
 mv /home/garner1/Work/dataset/fastq2cloud/transitionMatrix_fromFastq_3to3.csv $datadir
 model=$datadir/transitionMatrix_fromFastq_3to3.csv
-time parallel python $bindir/corpus/create_corpus.py {} $model ::: "$datadir"/chuncks/chunck_*
+time parallel python $bindir/corpus/create_corpus.py {} $model $dim $keep_N ::: "$datadir"/chuncks/chunck_*
 echo "Done"
 
 echo "Move corpus into specific directory and make the vocabulary"
