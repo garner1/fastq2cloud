@@ -59,7 +59,6 @@ threshold = 1                   # above this consider it a stop word
 influence = 0.5                 # influence of the stop-word on the mooving average
 sentences = []
 for index, row in reads.iterrows():
-    print row['read']
     if keep_N :                 # BUG IN THIS LOOP IN CASE OF FALSE!!!!
         read = row['read'].replace('N',random.choice(alphabet)) # random substitution of letter N (OR IS IT BETTER TO DISCARD THE READS?)
     if 'N' in row['read'] and not keep_N :

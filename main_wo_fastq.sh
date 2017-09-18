@@ -40,7 +40,8 @@ echo "Done"
 
 echo "Prepare corpus ..."	
 model=$datadir/transitionMatrix_fromFastq_"$dim"to3.csv
-time parallel python $bindir/corpus/create_corpus.py {} $model $dim $keep_N ::: "$datadir"/chuncks/chunck_*
+python $bindir/corpus/create_corpus.py "$datadir"/chuncks/chunck_aa $model $dim $keep_N 
+# time parallel python $bindir/corpus/create_corpus.py {} $model $dim $keep_N ::: "$datadir"/chuncks/chunck_*
 echo "Done"
 
 echo "Move corpus into specific directory and make the vocabulary"
