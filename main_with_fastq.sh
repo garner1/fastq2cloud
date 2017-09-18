@@ -2,16 +2,18 @@
 
 fastq=$1		# full path to the input fastq.gz file
 linesperfile=$2		# numb of lines per chunk: min{50000,#reads/20}
-dim=$3			# MC dimension parameter
+dim=$3		        # MC in-dimension parameter
 keep_N=$4		# 0 if you want to discard reads with N; 1 if you want to randomly replace them
 
 bindir=/home/garner1/Work/pipelines/fastq2cloud
 exp=`echo $fastq | rev | cut -d'/' -f1 | rev | cut -d'.' -f1`
-datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
+datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"/
 
 echo 'Running ' $exp ' with output files in ' $datadir
-echo "Create MC model ..." 	# approx 4m to run
-Rscript "$bindir"/segmentation/MC_model_from_fastq.R $fastq $dim
+
+echo "Create MC model ..." 	
+kmer=`echo $(( 3 + $dim ))`
+time bash "$bindir"/segmentation/jelly.sh $fastq $kmer $dim $datadir
 echo "Done"
 
 echo "Preapare reads ..."
@@ -21,8 +23,7 @@ time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
 echo "Done"
 
 echo "Prepare corpus ..."	
-mv /home/garner1/Work/dataset/fastq2cloud/transitionMatrix_fromFastq_"$dim"to"$dim".csv $datadir
-model=$datadir/transitionMatrix_fromFastq_"$dim"to"$dim".csv
+model=$datadir/transitionMatrix_fromFastq_"$dim"to3.csv
 time parallel python $bindir/corpus/create_corpus.py {} $model $dim $keep_N ::: "$datadir"/chuncks/chunck_*
 echo "Done"
 
@@ -34,20 +35,17 @@ mkdir -p "$datadir"/corpus_summary
 rm -f "$datadir"/corpus_summary/*
 corpus="$datadir"/corpus/*
 
-# time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c | awk '{print $1"\t"$2}' > "$datadir"/corpus_summary/count_word.txt
-# bash ./functions/word_frequency.sh "$datadir"/corpus_summary/count_word.txt
-# word_len_threshold=20		# filter-out words longer than this
-# awk -v len=$word_len_threshold 'length($2) <= len' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/count_shortword.txt
-# bash ./functions/word_frequency.sh "$datadir"/corpus_summary/count_shortword.txt
+time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c | awk '{print $1"\t"$2}' > "$datadir"/corpus_summary/count_word.txt
+bash ./functions/word_frequency.sh "$datadir"/corpus_summary/count_word.txt
 
-# awk '{print $2}' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/vocabulary.txt
-# awk '{print $1}' "$datadir"/corpus_summary/count_word.txt | LC_ALL=C sort -nr|cat -n|awk '{print $1"\t"$2}'|
-# datamash -s groupby 2 max 1 > "$datadir"/corpus_summary/rank_frequency.dat
+awk '{print $2}' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/vocabulary.txt
+awk '{print $1}' "$datadir"/corpus_summary/count_word.txt | LC_ALL=C sort -nr|cat -n|awk '{print $1"\t"$2}'|
+datamash -s groupby 2 max 1 > "$datadir"/corpus_summary/rank_frequency.dat
 
-# awk '{print length($1)}' "$datadir"/corpus_summary/vocabulary.txt | LC_ALL=C sort -n | LC_ALL=C uniq -c | 
-# gnuplot -p -e 'set terminal pdf; set output "wordlen-freq.pdf";set logscale y; plot "/dev/stdin" using 2:1'
-# mv wordlen-freq.pdf "$datadir"/corpus_summary
-# echo 'Done'
+awk '{print length($1)}' "$datadir"/corpus_summary/vocabulary.txt | LC_ALL=C sort -n | LC_ALL=C uniq -c | 
+gnuplot -p -e 'set terminal pdf; set output "wordlen-freq.pdf";set logscale y; plot "/dev/stdin" using 2:1'
+mv wordlen-freq.pdf "$datadir"/corpus_summary
+echo 'Done'
 
 # echo 'Build the Document by Term matrix ...'
 # time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"/corpus_summary/vocabulary.txt $word_len_threshold ::: "$datadir"/corpus/*_sentences.txt 

@@ -2,42 +2,44 @@
 
 # RUN THIS IF YOU DO NOT HAVE ALREADY A FASTQ FILE
 
-bindir=/home/garner1/Work/pipelines/fastq2cloud
 rnd_seed=$1
 genome_dir=$2
 genome_name=$3
 coverage=$4
-keep_N=$4		# 0 if you want to discard reads with N; 1 if you want to randomly replace them
+keep_N=$5		# 0 if you want to discard reads with N; 1 if you want to randomly replace them
+dim=$6			# input dimension of the MC model, the output dim is fixed to 3
 
+bindir=/home/garner1/Work/pipelines/fastq2cloud
 exp="simseq_"$coverage"X_"$genome_name"_rs"$rnd_seed
-datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"
+datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"/
 
-echo 'Running ' $exp ' with output files in ' $datadir
-echo "Simulate sequencing ..."
-# parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs 0 -ss HS25 -i {} -o {.}.1X_SE -l 150 -c 100 ::: "$genome_dir"/*.fa #with -c numb of reads
-parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs $rnd_seed -ss HS25 -i {} -o {.}.1X_SE -l 150 -f $coverage ::: "$genome_dir"/*.fa #with -f coverage
-mkdir -p $datadir/fastq && rm -f $datadir/fastq/*
-mv "$genome_dir"/*.{fq,aln} $datadir/fastq && rm -f $datadir/fastq/merged.fq
-cat $datadir/fastq/*.fq > $datadir/fastq/merged.fastq
-parallel gzip {} ::: $datadir/fastq/*.{fq,aln}
-echo "Done"
-
+# echo 'Running ' $exp ' with output files in ' $datadir
+# echo "Simulate sequencing ..."
+# # parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs 0 -ss HS25 -i {} -o {.}.1X_SE -l 150 -c 100 ::: "$genome_dir"/*.fa #with -c numb of reads
+# parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs $rnd_seed -ss HS25 -i {} -o {.}.1X_SE -l 150 -f $coverage ::: "$genome_dir"/*.fa #with -f coverage
+# mkdir -p $datadir/fastq && rm -f $datadir/fastq/*
+# mv "$genome_dir"/*.{fq,aln} $datadir/fastq && rm -f $datadir/fastq/merged.fq
+# cat $datadir/fastq/*.fq > $datadir/fastq/merged.fastq
+# gzip $datadir/fastq/merged.fastq
+# rm -f $datadir/fastq/*.fq
+# parallel gzip {} ::: $datadir/fastq/*.aln
+# echo "Done"
+ 
 echo "Preapare reads ..."
 mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
 chuncksPrefix="$datadir"/chuncks/chunck_ && rm -f "$chuncksPrefix"*
 linesperfile=50000
-fastq="$datadir"/fastq/merged.fastq
-time bash $bindir/corpus/parse_fastq_2.sh $fastq $linesperfile $chuncksPrefix
+fastq="$datadir"/fastq/merged.fastq.gz
+time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
 echo "Done"
 
 echo "Create MC model ..."
-dim=6
-Rscript "$bindir"/segmentation/MC_model_from_fastq.R $fastq $dim
+kmer=`echo $(( 3 + $dim ))`
+time bash "$bindir"/segmentation/jelly.sh $fastq $kmer $dim $datadir
 echo "Done"
 
 echo "Prepare corpus ..."	
-mv /home/garner1/Work/dataset/fastq2cloud/transitionMatrix_fromFastq_3to3.csv $datadir
-model=$datadir/transitionMatrix_fromFastq_3to3.csv
+model=$datadir/transitionMatrix_fromFastq_"$dim"to3.csv
 time parallel python $bindir/corpus/create_corpus.py {} $model $dim $keep_N ::: "$datadir"/chuncks/chunck_*
 echo "Done"
 
@@ -51,9 +53,6 @@ corpus="$datadir"/corpus/*
 
 time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c | awk '{print $1"\t"$2}' > "$datadir"/corpus_summary/count_word.txt
 bash ./functions/word_frequency.sh "$datadir"/corpus_summary/count_word.txt
-word_len_threshold=20		# filter-out words longer than this
-awk -v len=$word_len_threshold 'length($2) <= len' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/count_shortword.txt
-bash ./functions/word_frequency.sh "$datadir"/corpus_summary/count_shortword.txt
 
 awk '{print $2}' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/vocabulary.txt
 awk '{print $1}' "$datadir"/corpus_summary/count_word.txt | LC_ALL=C sort -nr|cat -n|awk '{print $1"\t"$2}'|
