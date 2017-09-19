@@ -13,17 +13,17 @@ bindir=/home/garner1/Work/pipelines/fastq2cloud
 exp="simseq_"$coverage"X_"$genome_name"_rs"$rnd_seed
 datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"/
 
-# echo 'Running ' $exp ' with output files in ' $datadir
-# echo "Simulate sequencing ..."
-# # parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs 0 -ss HS25 -i {} -o {.}.1X_SE -l 150 -c 100 ::: "$genome_dir"/*.fa #with -c numb of reads
-# parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs $rnd_seed -ss HS25 -i {} -o {.}.1X_SE -l 150 -f $coverage ::: "$genome_dir"/*.fa #with -f coverage
-# mkdir -p $datadir/fastq && rm -f $datadir/fastq/*
-# mv "$genome_dir"/*.{fq,aln} $datadir/fastq && rm -f $datadir/fastq/merged.fq
-# cat $datadir/fastq/*.fq > $datadir/fastq/merged.fastq
-# gzip $datadir/fastq/merged.fastq
-# rm -f $datadir/fastq/*.fq
-# parallel gzip {} ::: $datadir/fastq/*.aln
-# echo "Done"
+echo 'Running ' $exp ' with output files in ' $datadir
+echo "Simulate sequencing ..."
+# parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs 0 -ss HS25 -i {} -o {.}.1X_SE -l 150 -c 100 ::: "$genome_dir"/*.fa #with -c numb of reads
+parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs $rnd_seed -ss HS25 -i {} -o {.}.1X_SE -l 150 -f $coverage ::: "$genome_dir"/*.fa #with -f coverage
+mkdir -p $datadir/fastq && rm -f $datadir/fastq/*
+mv "$genome_dir"/*.{fq,aln} $datadir/fastq && rm -f $datadir/fastq/merged.fq
+cat $datadir/fastq/*.fq > $datadir/fastq/merged.fastq
+gzip $datadir/fastq/merged.fastq
+rm -f $datadir/fastq/*.fq
+parallel gzip {} ::: $datadir/fastq/*.aln
+echo "Done"
  
 echo "Preapare reads ..."
 mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
