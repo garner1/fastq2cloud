@@ -85,3 +85,8 @@ echo 'Build the co-occurrence matrix ...'
 time python $bindir/structure/cooccurrenceMat.py "$datadir"/pickle/DTM.pickle
 echo 'Done'
 
+####################
+# echo 'Run gensim word2vec implementation ...'
+# python ./structure/word2vector.py "$datadir"/corpus
+# echo 'Done!
+###########################################

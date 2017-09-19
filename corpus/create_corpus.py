@@ -14,24 +14,24 @@ import pylab
 import itertools
 import random
 
-def thresholding_algo(y, lag, threshold, influence):
-    signals = np.zeros(len(y))
-    filteredY = np.array(y)
-    avgFilter = [0]*len(y)
-    stdFilter = [0]*len(y)
-    avgFilter[lag - 1] = np.mean(y[0:2*lag]) # set the mean to that of the window of 2lag size
-    stdFilter[lag - 1] = np.std(y[0:2*lag])  # set the std to that of the window of 2lag size
-    for i in range(lag, len(y)-lag):
+def thresholding_algo(y, lag, threshold, influence,dim):
+    signals = np.zeros(len(y))  # initialize the stop-words vector
+    filteredY = np.array(y)     # initialize the filtered vector to the entire data
+    avgFilter = [0]*len(y)      # init the vector of mean values
+    stdFilter = [0]*len(y)      # init the vector of std values
+    avgFilter[lag - 1] = np.mean(y[0:dim]) # set the first mean to that of the window of dim size
+    stdFilter[lag - 1] = np.std(y[0:dim])  # set the first std to that of the window of dim size
+    for i in range(lag, len(y) - (dim-1)):
         if (y[i] - avgFilter[i - 1]) > threshold * stdFilter [i-1] and y[i-1] < y[i]: # condition to call a stop word
             signals[i] = 1      # call signal
             filteredY[i] = influence * y[i] + (1 - influence) * filteredY[i-1] # update local data points
-            avgFilter[i] = np.mean(filteredY[(i-lag):(i+lag)]) # update the local mean
-            stdFilter[i] = np.std(filteredY[(i-lag):(i+lag)])  # update the local std
+            avgFilter[i] = np.mean(filteredY[(i-dim):(i+dim)]) # update the local mean
+            stdFilter[i] = np.std(filteredY[(i-dim):(i+dim)])  # update the local std
         else:                                                  # if not stop word
             signals[i] = 0                                     # is a word
             filteredY[i] = y[i]                                # update local data
-            avgFilter[i] = np.mean(filteredY[(i-lag):(i+lag)]) # update local mean
-            stdFilter[i] = np.std(filteredY[(i-lag):(i+lag)])  # update local std
+            avgFilter[i] = np.mean(filteredY[(i-dim):(i+dim)]) # update local mean
+            stdFilter[i] = np.std(filteredY[(i-dim):(i+dim)])  # update local std
 
     return dict(signals = np.asarray(signals), # return list of words or stop words
                 avgFilter = np.asarray(avgFilter), # list of local averages
@@ -54,7 +54,7 @@ sentences = []
 alphabet = ['C','G','A','T']
 
 # Settings parameters
-lag = dim+3                     # window size where to consider local average and std
+lag = 3                         # lag before initializing local average and std
 threshold = 1                   # above this consider it a stop word
 influence = 0.5                 # influence of the stop-word on the mooving average
 sentences = []
@@ -71,14 +71,14 @@ for index, row in reads.iterrows():
     y = infodata.values[:,1].astype(np.float)
     y = np.lib.pad(y, (dim,dim-1), 'constant', constant_values=(0)) # set to 0 the borders of the reads
 
-    result = thresholding_algo(y, lag=lag, threshold=threshold, influence=influence)
+    result = thresholding_algo(y, lag=lag, threshold=threshold, influence=influence, dim=dim)
     stopword = [i for i, e in enumerate(result["signals"]) if e != 0] # find the positions of the stop words
     for pos in stopword:        # place a comma in the read at the position of the stop word
         read = read[:pos] + ',' + read[pos + 1:]
     sentence = [word for word in read.split(',')[1:-1] if len(word) > 3] # build sentence discarding words at the border and short words
     sentences.append(sentence)
 
-    # if index == 1:
+    # if index < 3:
     #     # Plot result
     #     pylab.plot(np.arange(1, len(y)+1), y)
     #     pylab.plot(np.arange(1, len(y)+1), result["avgFilter"], color="cyan", lw=2)
