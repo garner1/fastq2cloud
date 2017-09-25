@@ -44,46 +44,47 @@ time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
 echo "Done"
 
 echo "Create MC model ..." 
-kmer=`echo $(( 3 + $dim ))`
-time bash "$bindir"/segmentation/jelly.sh $fastq $kmer $dim $datadir
+zcat $fastq | paste - - - - | cut -f-2 | tr '\t' '\n' > $datadir/reads.fasta
+parallel bash "$bindir"/segmentation/jelly_f1.sh {} $datadir/reads.fasta "$datadir"_{} ::: 4 6 8
+parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"_{} {} 1.0 :::  4 6 8
 echo "Done"
 
-echo "Prepare corpus ..."
-model=$datadir/transitionMatrix_fromFastq_"$dim"to3.csv
-time parallel python $bindir/corpus/create_corpus.py {} $model $dim $keep_N ::: "$datadir"/chuncks/chunck_*
-echo "Done"
+# echo "Prepare corpus ..."
+# model=$datadir/transitionMatrix_fromFastq_"$dim"to1.csv
+# time parallel python $bindir/corpus/create_corpus.py {} $model $dim $keep_N ::: "$datadir"/chuncks/chunck_*
+# echo "Done"
 
-echo "Move corpus into specific directory and make the vocabulary"
-mkdir -p "$datadir"/corpus && rm -f "$datadir"/corpus/*
-mv "$chuncksPrefix"*_sentences.txt "$datadir"/corpus
-mkdir -p "$datadir"/corpus_summary && rm -f "$datadir"/corpus_summary/*
-corpus="$datadir"/corpus/*
+# echo "Move corpus into specific directory and make the vocabulary"
+# mkdir -p "$datadir"/corpus && rm -f "$datadir"/corpus/*
+# mv "$chuncksPrefix"*_sentences.txt "$datadir"/corpus
+# mkdir -p "$datadir"/corpus_summary && rm -f "$datadir"/corpus_summary/*
+# corpus="$datadir"/corpus/*
 
-time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c | awk '{print $1"\t"$2}' > "$datadir"/corpus_summary/count_word.txt
-bash ./functions/word_frequency.sh "$datadir"/corpus_summary/count_word.txt
+# time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c | awk '{print $1"\t"$2}' > "$datadir"/corpus_summary/count_word.txt
+# bash ./functions/word_frequency.sh "$datadir"/corpus_summary/count_word.txt
 
-awk '{print $2}' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/vocabulary.txt
-awk '{print $1}' "$datadir"/corpus_summary/count_word.txt | LC_ALL=C sort -nr|cat -n|awk '{print $1"\t"$2}'|
-datamash -s groupby 2 max 1 > "$datadir"/corpus_summary/rank_frequency.dat
+# awk '{print $2}' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/vocabulary.txt
+# awk '{print $1}' "$datadir"/corpus_summary/count_word.txt | LC_ALL=C sort -nr|cat -n|awk '{print $1"\t"$2}'|
+# datamash -s groupby 2 max 1 > "$datadir"/corpus_summary/rank_frequency.dat
 
-awk '{print length($1)}' "$datadir"/corpus_summary/vocabulary.txt | LC_ALL=C sort -n | LC_ALL=C uniq -c | 
-gnuplot -p -e 'set terminal pdf; set output "wordlen-freq.pdf";set logscale y; plot "/dev/stdin" using 2:1'
-mv wordlen-freq.pdf "$datadir"/corpus_summary
-echo 'Done'
+# awk '{print length($1)}' "$datadir"/corpus_summary/vocabulary.txt | LC_ALL=C sort -n | LC_ALL=C uniq -c | 
+# gnuplot -p -e 'set terminal pdf; set output "wordlen-freq.pdf";set logscale y; plot "/dev/stdin" using 2:1'
+# mv wordlen-freq.pdf "$datadir"/corpus_summary
+# echo 'Done'
 
-echo 'Build the Document by Term matrix ...'
-word_len_threshold=100		# max word length
-time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"/corpus_summary/vocabulary.txt $word_len_threshold ::: "$datadir"/corpus/*_sentences.txt 
-mkdir -p "$datadir"/pickle && rm -f "$datadir"/pickle/*
-mv "$datadir"/corpus/*_sparseDocTermMat.pickle "$datadir"/pickle
-time python $bindir/structure/mergeDocTermMat.py "$datadir"/pickle
-rm -f "$datadir"/pickle/chunck*pickle
-echo 'Done'
+# echo 'Build the Document by Term matrix ...'
+# word_len_threshold=100		# max word length
+# time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"/corpus_summary/vocabulary.txt $word_len_threshold ::: "$datadir"/corpus/*_sentences.txt 
+# mkdir -p "$datadir"/pickle && rm -f "$datadir"/pickle/*
+# mv "$datadir"/corpus/*_sparseDocTermMat.pickle "$datadir"/pickle
+# time python $bindir/structure/mergeDocTermMat.py "$datadir"/pickle
+# rm -f "$datadir"/pickle/chunck*pickle
+# echo 'Done'
 
-echo 'Build the co-occurrence matrix ...'
-# The total number of docs can be < than the initial numb of reads because some reads might contain too few words
-time python $bindir/structure/cooccurrenceMat.py "$datadir"/pickle/DTM.pickle
-echo 'Done'
+# echo 'Build the co-occurrence matrix ...'
+# # The total number of docs can be < than the initial numb of reads because some reads might contain too few words
+# time python $bindir/structure/cooccurrenceMat.py "$datadir"/pickle/DTM.pickle
+# echo 'Done'
 
 ####################
 # echo 'Run gensim word2vec implementation ...'
