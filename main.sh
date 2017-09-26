@@ -8,19 +8,17 @@ if [[ $simulation_flag == 0 ]]; then
     genome_name=$4		# name of the genome
     coverage=$5			# desired coverage
     keep_N=$6                   # 0 if you want to discard reads with N; 1 if you want to randomly replace them
-    dim=$7                      # input dimension of the MC model, the output dim is fixed to 3
     exp="simseq_"$coverage"X_"$genome_name"_rs"$rnd_seed # name of the experiment
 fi
 
 if [[ $simulation_flag == 1 ]]; then
     fastq=$2           # full path to the input fastq.gz file
     linesperfile=$3    # numb of lines per chunk: min{50000,#reads/20}
-    dim=$4             # MC in-dimension parameter
-    keep_N=$5          # 0 if you want to discard reads with N; 1 if you want to randomly replace them
+    keep_N=$4          # 0 if you want to discard reads with N; 1 if you want to randomly replace them
     exp=`echo $fastq | rev | cut -d'/' -f1 | rev | cut -d'.' -f1` # name of the experiment
 fi
 
-bindir=/home/garner1/Work/pipelines/fastq2cloud # location of the executable files
+bindir=/home/garner1/Work/pipelines/fastq2cloud        # location of the executable files
 datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"/ # location of the output files
 
 echo 'Running ' $exp ' with output files in ' $datadir
@@ -45,14 +43,16 @@ echo "Done"
 
 echo "Create MC model ..." 
 zcat $fastq | paste - - - - | cut -f-2 | tr '\t' '\n' > $datadir/reads.fasta
-parallel bash "$bindir"/segmentation/jelly_f1.sh {} $datadir/reads.fasta "$datadir"_{} ::: 4 6 8
-parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"_{} {} 1.0 :::  4 6 8
+parallel bash "$bindir"/segmentation/jelly_f1.sh {} $datadir/reads.fasta "$datadir"_{} ::: 4 6 8 10 # define the models dimensions
+parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"_{} {} 1.0 ::: 4 6 8 10
 echo "Done"
 
-# echo "Prepare corpus ..."
-# model=$datadir/transitionMatrix_fromFastq_"$dim"to1.csv
-# time parallel python $bindir/corpus/create_corpus.py {} $model $dim $keep_N ::: "$datadir"/chuncks/chunck_*
-# echo "Done"
+echo "Prepare corpus ..."
+rm -rf $datadir/MCmodel		# rm old directory
+mkdir -p $datadir/MCmodel && mv "$datadir"_*transitionMatrix* $datadir/MCmodel && modelDirectory=$datadir/MCmodel # create the directory storing the MC models
+rm -f $datadir/{_*,reads.fasta}	# clean up
+time parallel python $bindir/corpus/create_corpus.py {} $modelDirectory $keep_N ::: "$datadir"/chuncks/chunck_*
+echo "Done"
 
 # echo "Move corpus into specific directory and make the vocabulary"
 # mkdir -p "$datadir"/corpus && rm -f "$datadir"/corpus/*
