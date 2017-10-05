@@ -43,15 +43,17 @@ echo "Done"
 
 echo "Create MC model ..." 
 zcat $fastq | paste - - - - | cut -f-2 | tr '\t' '\n' > $datadir/reads.fasta
-parallel bash "$bindir"/segmentation/jelly_f1.sh {} $datadir/reads.fasta "$datadir"_{} ::: 4 6 8 10 # define the models dimensions
-parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"_{} {} 1.0 ::: 4 6 8 10
-echo "Done"
-
-echo "Prepare corpus ..."
+time parallel bash "$bindir"/segmentation/jelly_f1.sh {} $datadir/reads.fasta "$datadir"_{} ::: 4 6 8 10 12 14 # define the models dimensions
+# THE CANONICAL REPRESENTATION OF JELLYFISH NEEDS TO INTRODUCE THE REVERSE COMPLEMENT OF EACH COUNTED KMER!!!
+time parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"_{} {} 1.0 ::: 4 6 8 10 12 14
 rm -rf $datadir/MCmodel		# rm old directory
 mkdir -p $datadir/MCmodel && mv "$datadir"_*transitionMatrix* $datadir/MCmodel && modelDirectory=$datadir/MCmodel # create the directory storing the MC models
 rm -f $datadir/{_*,reads.fasta}	# clean up
-time parallel python $bindir/corpus/create_corpus.py {} $modelDirectory $keep_N ::: "$datadir"/chuncks/chunck_*
+echo "Done"
+
+echo "Prepare corpus ..."
+# python $bindir/corpus/create_corpus.py  $bindir/corpus/read.txt $modelDirectory $keep_N
+# time parallel python $bindir/corpus/create_corpus.py {} $modelDirectory $keep_N ::: "$datadir"/chuncks/chunck_*
 echo "Done"
 
 # echo "Move corpus into specific directory and make the vocabulary"
