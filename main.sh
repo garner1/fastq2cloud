@@ -41,20 +41,37 @@ chuncksPrefix="$datadir"/chuncks/chunck_
 time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
 echo "Done"
 
+mkdir -p "$datadir"splitFastq
+zcat $fastq | split -l 4000000 - "$datadir"splitFastq/
 echo "Create MC model ..." 
-zcat $fastq | paste - - - - | cut -f-2 | tr '\t' '\n' > $datadir/reads.fasta
-time parallel bash "$bindir"/segmentation/jelly_f1.sh {} $datadir/reads.fasta "$datadir"_{} ::: 4 6 8 10 12 14 # define the models dimensions
-# THE CANONICAL REPRESENTATION OF JELLYFISH NEEDS TO INTRODUCE THE REVERSE COMPLEMENT OF EACH COUNTED KMER!!!
-time parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"_{} {} 1.0 ::: 4 6 8 10 12 14
+for dim in `seq 10 2 14`; do
+    for file in `ls "$datadir"splitFastq/`; do
+	input="$datadir"splitFastq/"$file"
+	time bash "$bindir"/segmentation/jelly_f1.sh $dim $input "$datadir""$file".jf
+    done 
+    jellyfish merge -o "$datadir"merged_"$dim".jf "$datadir"a*.jf
+    rm -f "$datadir""$file".jf
+done
+time parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"/merged_{}.jf {} 1.0 ::: 10 12 14
 rm -rf $datadir/MCmodel		# rm old directory
-mkdir -p $datadir/MCmodel && mv "$datadir"_*transitionMatrix* $datadir/MCmodel && modelDirectory=$datadir/MCmodel # create the directory storing the MC models
-rm -f $datadir/{_*,reads.fasta}	# clean up
+mkdir -p $datadir/MCmodel && mv "$datadir"*.csv $datadir/MCmodel
+rm -f $datadir/{_*,merged_*}	# clean up
+modelDirectory=$datadir/MCmodel # create the directory storing the MC models
 echo "Done"
+# !!!INTRODUCE THE RIGHT TO LEFT AND LEFT TO RIGTH REPRESENTATION!!!
 
-echo "Prepare corpus ..."
-# python $bindir/corpus/create_corpus.py  $bindir/corpus/read.txt $modelDirectory $keep_N
-# time parallel python $bindir/corpus/create_corpus.py {} $modelDirectory $keep_N ::: "$datadir"/chuncks/chunck_*
-echo "Done"
+# echo "Prepare corpus ..."
+# g++ -std=c++11 $bindir/corpus/tokenizer_withMean.cpp -o $bindir/corpus/mean & pid1=$! # compile the tokenizer
+# g++ -std=c++11 $bindir/corpus/tokenizer_withMedian.cpp -o $bindir/corpus/median & pid2=$! # compile the tokenizer
+# wait $pid1
+# wait $pid2
+# # time parallel "./corpus/mean {} '$datadir'MCmodel/ > {}_MeanSentences" ::: "$datadir"chuncks/chunck_*
+# time parallel "./corpus/median {} '$datadir'MCmodel/ > {}_MeanSentences" ::: "$datadir"chuncks/chunck_*
+# echo "Done"
+
+################################################################
+#!!! NEED TO REMOVE FIRST WORD AND SHORT WORDS IN DOCUMENTS  !!!
+################################################################
 
 # echo "Move corpus into specific directory and make the vocabulary"
 # mkdir -p "$datadir"/corpus && rm -f "$datadir"/corpus/*

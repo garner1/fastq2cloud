@@ -280,19 +280,28 @@ int main ( int argc, char* argv[] )
       if ( k == 14 )
       	selection = profile14;
 
-      signal = stop_finder( selection, k-1, 10, 1.0, 0.5 );
-      // cout << "The optimal kmer is fot k= " << k << endl;
+      vector<float> y = selection;
+      int context = k-1;
+      int lag = 10;
+      float threshold = 1.0;
+      float influence =0.5;      
+      signal = stop_finder( y, context, lag, threshold, influence );
       for( unsigned i=0; i < read.size() ; i++ )
       	{
-	  if (signal[i] == 0)
+	  if (i == 0)
+	    cout << "['";
+	  if ( signal[i] == 0 )
 	    cout << read[i];
 	  else
-	    cout << ",";
+	    cout << "','";
+	  if (i == read.size() - 1 )
+	    cout << "']";
       	}
       cout << endl;
     }// end of loop over reads
 } 
 
+// cout << "The optimal kmer is fot k= " << k << endl;
 // Show the map content
 // cout << m.find(key)->second;
 // for(map<string, float>::iterator it = m.begin(); it != m.end(); ++it)

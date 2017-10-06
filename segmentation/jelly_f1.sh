@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 kmerlen=$1
-fasta=$2
-output_dir=$3
+fastq=$2
+output_file=$3
 
-# consider both strands in the counting otherwise you will not find all matches in the model when searching for kmers and assigning information values
-jellyfish count -m $kmerlen -o $output_dir -c 3 -s 10000000 -t 32 $fasta
+jellyfish count -C -m $kmerlen -o $output_file -s 100M -t 32 --out-counter-len 4 $fastq
