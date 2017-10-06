@@ -30,14 +30,6 @@ using std::ifstream;
 
 using namespace boost::accumulators;
 
-float mean_func(vector<float> v, int start, int end)
-{
-  double sum = accumulate(v.begin()+start,v.begin()+end,0.0);
-  double mean = sum / ((end-start)*1.0);
-
-  return mean;
-}
-
 float std_func(vector<float> v, int start, int end)
 {
   double sum = accumulate(v.begin()+start,v.begin()+end,0.0);
@@ -46,6 +38,29 @@ float std_func(vector<float> v, int start, int end)
   double stdev = sqrt(sq_sum / ((end-start)*1.0) - mean * mean);
 
   return stdev;
+}
+
+float median_func(vector<float> newvec)
+{
+  float median;
+  int size = newvec.size();
+  sort(newvec.begin(), newvec.end());
+  if (size % 2 == 0)
+    {
+      median = (newvec[size / 2 - 1] + newvec[size / 2]) / 2.0;
+    }
+  else
+    median = newvec[size / 2]; 
+
+  return median;
+}
+
+float mean_func(vector<float> v, int start, int end)
+{
+  double sum = accumulate(v.begin()+start,v.begin()+end,0.0);
+  double mean = sum / ((end-start)*1.0);
+
+  return mean;
 }
 
 vector<int> stop_finder( vector<float> y, int dim, int lag, float threshold, float influence )
@@ -77,74 +92,29 @@ vector<int> stop_finder( vector<float> y, int dim, int lag, float threshold, flo
   return signals;
 }
 
-float median_func(vector<float> newvec)
-{
-  float median;
-  int size = newvec.size();
-  sort(newvec.begin(), newvec.end());
-  if (size % 2 == 0)
-    {
-      median = (newvec[size / 2 - 1] + newvec[size / 2]) / 2.0;
-    }
-  else
-    median = newvec[size / 2]; 
-
-  return median;
-}
-
 int main ( int argc, char* argv[] )
 { 
   string path;
-  ifstream model4;
-  ifstream model6;
-  ifstream model8;
   ifstream model10;
   ifstream model12;
   ifstream model14;
-  path = string(argv[2])+"_4transitionMatrix_fromFastq_4to1.csv";
-  model4.open( path ); // the MC model
-  if (!model4.good()) 
-    return 1;                         // exit if file not found
-  path = string(argv[2])+"_6transitionMatrix_fromFastq_6to1.csv";
-  model6.open( path ); // the MC model
-  if (!model6.good()) 
-    return 1;                         // exit if file not found
-  path = string(argv[2])+"_8transitionMatrix_fromFastq_8to1.csv";
-  model8.open( path ); // the MC model
-  if (!model8.good()) 
-    return 1;                         // exit if file not found
-  path = string(argv[2])+"_10transitionMatrix_fromFastq_10to1.csv";
+  path = string(argv[2])+"merged_10.jf.csv";
   model10.open( path ); // the MC model
   if (!model10.good()) 
     return 1;                         // exit if file not found
-  path = string(argv[2])+"_12transitionMatrix_fromFastq_12to1.csv";
+  path = string(argv[2])+"merged_12.jf.csv";
   model12.open( path ); // the MC model
   if (!model12.good()) 
     return 1;                         // exit if file not found
-  path = string(argv[2])+"_14transitionMatrix_fromFastq_14to1.csv";
+  path = string(argv[2])+"merged_14.jf.csv";
   model14.open( path ); // the MC model
   if (!model14.good()) 
     return 1;                         // exit if file not found
 
-  map<string, float> m4,m6,m8,m10,m12,m14;
-  map<string, float>::iterator p4,p6,p8,p10,p12,p14;
+  map<string, float> m10,m12,m14;
+  map<string, float>::iterator p10,p12,p14;
   string read,kmer;
   float value;
-  while (!model4.eof())	// loop over model lines
-    {
-      model4 >> kmer >> value;
-      m4[kmer] = value;
-    }
-  while (!model6.eof())	// loop over model lines
-    {
-      model6 >> kmer >> value;
-      m6[kmer] = value;
-    }
-  while (!model8.eof())	// loop over model lines
-    {
-      model8 >> kmer >> value;
-      m8[kmer] = value;
-    }
   while (!model10.eof())	// loop over model lines
     {
       model10 >> kmer >> value;
@@ -176,55 +146,15 @@ int main ( int argc, char* argv[] )
     {
       medianvec = {};
       vector<float> profile4(read.size(),0.0),profile6(read.size(),0.0),profile8(read.size(),0.0),profile10(read.size(),0.0),profile12(read.size(),0.0),profile14(read.size(),0.0);
-
-      k = 4;
-      for (unsigned i = 0; i < read.length()-(k-1); i += 1) // loop over read
-      	{
-      	  kmer = read.substr(i, k);
-      	  p4 = m4.find(kmer);
-      	  if (p4 != m4.end())
-      	    {
-      	      info = p4->second;  
-      	      profile4[i+k-1] += info; // and the end of the kmer, for bi-directionality
-      	    }
-      	}
-      median = median_func(profile4); // evaluate the median
-      medianvec.push_back( median ); 
-
-      k = 6;
-      for (unsigned i = 0; i < read.length()-(k-1); i += 1) // loop over read
-      	{
-      	  kmer = read.substr(i, k);
-      	  p6 = m6.find(kmer);
-      	  if (p6 != m6.end())
-      	    {
-      	      info = p6->second;  
-      	      profile6[i+k-1] += info; // and the end of the kmer, for bi-directionality
-      	    }
-      	}
-      median = median_func(profile6); // evaluate the median
-      medianvec.push_back( median ); 
-
-      k = 8;
-      for (unsigned i = 0; i < read.length()-(k-1); i += 1) // loop over read
-      	{
-      	  kmer = read.substr(i, k);
-      	  p8 = m8.find(kmer);
-      	  if (p8 != m8.end())
-      	    {
-      	      info = p8->second;  
-      	      profile8[i+k-1] += info; // and the end of the kmer, for bi-directionality
-      	    }
-      	}
-      median = median_func(profile8); // evaluate the median
-      medianvec.push_back( median ); 
+      
+      cout << read << endl;
 
       k = 10;
       for (unsigned i = 0; i < read.length()-(k-1); i += 1)
       	{
       	  kmer = read.substr(i, k);
       	  p10 = m10.find(kmer);
-      	  if (p10 != m10.end())
+      	  if (p10 != m10.end())	// kmer is present as a key
       	    {
       	      info = p10->second;  
       	      profile10[i+k-1] += info;
@@ -238,7 +168,7 @@ int main ( int argc, char* argv[] )
       	{
       	  kmer = read.substr(i, k);
       	  p12 = m12.find(kmer);
-      	  if (p12 != m12.end())
+      	  if (p12 != m12.end())	// kmer is present as a key
       	    {
       	      info = p12->second;  
       	      profile12[i+k-1] += info;
@@ -252,7 +182,7 @@ int main ( int argc, char* argv[] )
       	{
       	  kmer = read.substr(i, k);
       	  p14 = m14.find(kmer);
-      	  if (p14 != m14.end())
+      	  if (p14 != m14.end())	// kmer is present as a key
       	    {
       	      info = p14->second;  
       	      profile14[i+k-1] += info;
@@ -264,15 +194,9 @@ int main ( int argc, char* argv[] )
       // Find the optimal kmer size
       auto smallest = min_element( begin(medianvec), end(medianvec) );
       location = distance( begin(medianvec), smallest );
-      k = 2*location + 4;
+      k = 2*location + 10;
 
       // Select the optimal profile for the read
-      if ( k == 4 )
-      	selection = profile4;
-      if ( k == 6 )
-      	selection = profile6;
-      if ( k == 8 )
-      	selection = profile8;
       if ( k == 10 )
       	selection = profile10;
       if ( k == 12 )
@@ -288,18 +212,21 @@ int main ( int argc, char* argv[] )
       signal = stop_finder( y, context, lag, threshold, influence );
       for( unsigned i=0; i < read.size() ; i++ )
       	{
-	  if (i == 0)
-	    cout << "['";
-	  if ( signal[i] == 0 )
-	    cout << read[i];
-	  else
-	    cout << "','";
-	  if (i == read.size() - 1 )
-	    cout << "']";
+      	  if (i == 0)
+      	    cout << "['";
+      	  if ( signal[i] == 0 )
+      	    cout << read[i];
+      	  else
+      	    cout << "','";
+      	  if (i == read.size() - 1 )
+      	    cout << "']";
       	}
       cout << endl;
     } // end of loop over reads
 } 
+
+
+
 
 // cout << "The optimal kmer is fot k= " << k << endl;
 // Show the map content

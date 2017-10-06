@@ -36,38 +36,44 @@ if [[ $simulation_flag == 0 ]]; then
 fi
 
 echo "Preapare reads ..."
-mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
-chuncksPrefix="$datadir"/chuncks/chunck_ 
-time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
+# mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
+# chuncksPrefix="$datadir"/chuncks/chunck_ 
+# time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
 echo "Done"
 
-mkdir -p "$datadir"splitFastq
-zcat $fastq | split -l 4000000 - "$datadir"splitFastq/
+echo "Split the fastq file ..."
+# rm -rf "$datadir"splitFastq && mkdir -p "$datadir"splitFastq
+# zcat $fastq | split -l 4000000 - "$datadir"splitFastq/
+echo "Done"
 echo "Create MC model ..." 
-for dim in `seq 10 2 14`; do
-    for file in `ls "$datadir"splitFastq/`; do
-	input="$datadir"splitFastq/"$file"
-	time bash "$bindir"/segmentation/jelly_f1.sh $dim $input "$datadir""$file".jf
-    done 
-    jellyfish merge -o "$datadir"merged_"$dim".jf "$datadir"a*.jf
-    rm -f "$datadir""$file".jf
-done
-time parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"/merged_{}.jf {} 1.0 ::: 10 12 14
-rm -rf $datadir/MCmodel		# rm old directory
-mkdir -p $datadir/MCmodel && mv "$datadir"*.csv $datadir/MCmodel
-rm -f $datadir/{_*,merged_*}	# clean up
-modelDirectory=$datadir/MCmodel # create the directory storing the MC models
+# for dim in `seq 10 2 14`; do
+#     echo "count"
+#     for file in `ls "$datadir"splitFastq/`; do
+# 	input="$datadir"splitFastq/"$file"
+# 	bash "$bindir"/segmentation/jelly_f1.sh $dim $input "$datadir""$file".jf
+#     done 
+#     echo "merge"
+#     time jellyfish merge -o "$datadir"merged_"$dim".jf "$datadir"??.jf
+#     rm -f "$datadir"??.jf
+# done
+# echo "Build the transition matrix"
+# time parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"merged_{}.jf {} 1.0 ::: 10 12 14
+# rm -rf $datadir/MCmodel		# rm old directory
+# mkdir -p $datadir/MCmodel && mv "$datadir"*.csv $datadir/MCmodel
+# rm -rf "$datadir"*.{fa,tsv,jf}
 echo "Done"
 # !!!INTRODUCE THE RIGHT TO LEFT AND LEFT TO RIGTH REPRESENTATION!!!
 
-# echo "Prepare corpus ..."
-# g++ -std=c++11 $bindir/corpus/tokenizer_withMean.cpp -o $bindir/corpus/mean & pid1=$! # compile the tokenizer
-# g++ -std=c++11 $bindir/corpus/tokenizer_withMedian.cpp -o $bindir/corpus/median & pid2=$! # compile the tokenizer
-# wait $pid1
-# wait $pid2
-# # time parallel "./corpus/mean {} '$datadir'MCmodel/ > {}_MeanSentences" ::: "$datadir"chuncks/chunck_*
+# modelDirectory=$datadir/MCmodel # create the directory storing the MC models
+echo "Prepare corpus ..."
+g++ -std=c++11 $bindir/corpus/tokenizer_withMean.cpp -o $bindir/corpus/mean & pid1=$! # compile the tokenizer
+g++ -std=c++11 $bindir/corpus/tokenizer_withMedian.cpp -o $bindir/corpus/median & pid2=$! # compile the tokenizer
+wait $pid1
+wait $pid2
+./corpus/median ./corpus/reads.txt "$datadir"MCmodel/ > test
+# time parallel "./corpus/mean {} '$datadir'MCmodel/ > {}_MeanSentences" ::: "$datadir"chuncks/chunck_*
 # time parallel "./corpus/median {} '$datadir'MCmodel/ > {}_MeanSentences" ::: "$datadir"chuncks/chunck_*
-# echo "Done"
+echo "Done"
 
 ################################################################
 #!!! NEED TO REMOVE FIRST WORD AND SHORT WORDS IN DOCUMENTS  !!!
