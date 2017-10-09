@@ -2,19 +2,19 @@
 
 simulation_flag=$1		# to simulate (0) sequencing or not (1); remember that convention is different from other languages
 
-if [[ $simulation_flag == 0 ]]; then
-    rnd_seed=$2			# random seed for the sequencing simulation
-    genome_dir=$3		# directory location of the reference genome
-    genome_name=$4		# name of the genome
-    coverage=$5			# desired coverage
-    keep_N=$6                   # 0 if you want to discard reads with N; 1 if you want to randomly replace them
+if [[ $simulation_flag == 0 ]]; then # simulate sequencing
+    rnd_seed=$2			     # random seed for the sequencing simulation
+    genome_dir=$3		     # directory location of the reference genome
+    genome_name=$4		     # name of the genome
+    coverage=$5			     # desired coverage
+    keep_N=$6                        # 0 if you want to discard reads with N; 1 if you want to randomly replace them
     exp="simseq_"$coverage"X_"$genome_name"_rs"$rnd_seed # name of the experiment
 fi
 
-if [[ $simulation_flag == 1 ]]; then
-    fastq=$2           # full path to the input fastq.gz file
-    linesperfile=$3    # numb of lines per chunk: min{50000,#reads/20}
-    keep_N=$4          # 0 if you want to discard reads with N; 1 if you want to randomly replace them
+if [[ $simulation_flag == 1 ]]; then # do not simulate sequencing
+    fastq=$2                         # full path to the input fastq.gz file
+    linesperfile=$3                  # numb of lines per chunk: min{50000,#reads/20}
+    keep_N=$4                        # 0 if you want to discard reads with N; 1 if you want to randomly replace them
     exp=`echo $fastq | rev | cut -d'/' -f1 | rev | cut -d'.' -f1` # name of the experiment
 fi
 
@@ -23,7 +23,7 @@ datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"/ # location of the output 
 
 echo 'Running ' $exp ' with output files in ' $datadir
 
-if [[ $simulation_flag == 0 ]]; then
+if [[ $simulation_flag == 0 ]]; then # simulate sequencing
     echo "Simulate sequencing ..."
     parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs $rnd_seed -ss HS25 -i {} -o {.}.1X_SE -l 150 -f $coverage ::: "$genome_dir"/*.fa #with -f coverage
     mkdir -p $datadir/fastq && rm -f $datadir/fastq/*
@@ -36,41 +36,42 @@ if [[ $simulation_flag == 0 ]]; then
 fi
 
 echo "Preapare reads ..."
-# mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
-# chuncksPrefix="$datadir"/chuncks/chunck_ 
-# time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
+mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
+chuncksPrefix="$datadir"/chuncks/chunck_aa 
+time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
 echo "Done"
 
 echo "Split the fastq file ..."
-# rm -rf "$datadir"splitFastq && mkdir -p "$datadir"splitFastq
-# zcat $fastq | split -l 4000000 - "$datadir"splitFastq/
+rm -rf "$datadir"splitFastq && mkdir -p "$datadir"splitFastq
+zcat $fastq | split -l 4000000 - "$datadir"splitFastq/
 echo "Done"
 echo "Create MC model ..." 
-# for dim in `seq 10 2 14`; do
-#     echo "count"
-#     for file in `ls "$datadir"splitFastq/`; do
-# 	input="$datadir"splitFastq/"$file"
-# 	bash "$bindir"/segmentation/jelly_f1.sh $dim $input "$datadir""$file".jf
-#     done 
-#     echo "merge"
-#     time jellyfish merge -o "$datadir"merged_"$dim".jf "$datadir"??.jf
-#     rm -f "$datadir"??.jf
-# done
-# echo "Build the transition matrix"
-# time parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"merged_{}.jf {} 1.0 ::: 10 12 14
-# rm -rf $datadir/MCmodel		# rm old directory
-# mkdir -p $datadir/MCmodel && mv "$datadir"*.csv $datadir/MCmodel
-# rm -rf "$datadir"*.{fa,tsv,jf}
+for dim in `seq 10 2 14`; do
+    echo "count"
+    for file in `ls "$datadir"splitFastq/`; do
+	input="$datadir"splitFastq/"$file"
+	bash "$bindir"/segmentation/jelly_f1.sh $dim $input "$datadir""$file".jf
+    done 
+    echo "merge"
+    time jellyfish merge -o "$datadir"merged_"$dim".jf "$datadir"??.jf
+    rm -f "$datadir"??.jf
+done
+
+echo "Build the transition matrix"
+time parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"merged_{}.jf {} 1.0 ::: 10 12 14
+rm -rf $datadir/MCmodel		# clean directory
+mkdir -p $datadir/MCmodel 
+mv "$datadir"*.csv $datadir/MCmodel
+rm -rf "$datadir"*.{fa,tsv,jf}
 echo "Done"
 # !!!INTRODUCE THE RIGHT TO LEFT AND LEFT TO RIGTH REPRESENTATION!!!
 
-# modelDirectory=$datadir/MCmodel # create the directory storing the MC models
 echo "Prepare corpus ..."
 g++ -std=c++11 $bindir/corpus/tokenizer_withMean.cpp -o $bindir/corpus/mean & pid1=$! # compile the tokenizer
 g++ -std=c++11 $bindir/corpus/tokenizer_withMedian.cpp -o $bindir/corpus/median & pid2=$! # compile the tokenizer
 wait $pid1
 wait $pid2
-./corpus/median ./corpus/reads.txt "$datadir"MCmodel/ > test
+time ./corpus/mean "$datadir"chuncks/chunck_aa "$datadir"MCmodel/ > "$datadir"chuncks/chunck_aa_MeanSentences
 # time parallel "./corpus/mean {} '$datadir'MCmodel/ > {}_MeanSentences" ::: "$datadir"chuncks/chunck_*
 # time parallel "./corpus/median {} '$datadir'MCmodel/ > {}_MeanSentences" ::: "$datadir"chuncks/chunck_*
 echo "Done"
