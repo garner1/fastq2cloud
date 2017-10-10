@@ -13,67 +13,76 @@ fi
 
 if [[ $simulation_flag == 1 ]]; then # do not simulate sequencing
     fastq=$2                         # full path to the input fastq.gz file
-    linesperfile=$3                  # numb of lines per chunk: min{50000,#reads/20}
-    keep_N=$4                        # 0 if you want to discard reads with N; 1 if you want to randomly replace them
+    keep_N=$3                        # 0 if you want to discard reads with N; 1 if you want to randomly replace them
     exp=`echo $fastq | rev | cut -d'/' -f1 | rev | cut -d'.' -f1` # name of the experiment
 fi
 
+echo 'Running ' $exp ' with output files in ' $datadir
+
 bindir=/home/garner1/Work/pipelines/fastq2cloud        # location of the executable files
 datadir=/home/garner1/Work/dataset/fastq2cloud/"$exp"/ # location of the output files
+mkdir -p "$datadir"fastq
 
-echo 'Running ' $exp ' with output files in ' $datadir
+if [[ $simulation_flag == 1 ]]; then # do not simulate sequencing
+    # gunzip -c $fastq > "$datadir"fastq/unzip.fastq
+    # echo "Quality control on the fastq file ..."
+    # sickle se -f "$datadir"fastq/unzip.fastq -t sanger -o "$datadir"fastq/trimmed.fastq -n
+    # echo "Done"
+    fastq="$datadir"fastq/trimmed.fastq
+fi
 
 if [[ $simulation_flag == 0 ]]; then # simulate sequencing
     echo "Simulate sequencing ..."
     parallel ~/tools/ART/art_bin_MountRainier/art_illumina -rs $rnd_seed -ss HS25 -i {} -o {.}.1X_SE -l 150 -f $coverage ::: "$genome_dir"/*.fa #with -f coverage
-    mkdir -p $datadir/fastq && rm -f $datadir/fastq/*
-    mv "$genome_dir"/*.{fq,aln} $datadir/fastq && rm -f $datadir/fastq/merged.fq
-    cat $datadir/fastq/*.fq > $datadir/fastq/merged.fastq && rm -f $datadir/fastq/*.fq
-    parallel gzip {} ::: $datadir/fastq/*.aln $datadir/fastq/merged.fastq
-    linesperfile=50000
-    fastq="$datadir"/fastq/merged.fastq.gz
+    mkdir -p "$datadir"fastq && rm -f "$datadir"fastq/*
+    mv "$genome_dir"/*.{fq,aln} "$datadir"fastq && rm -f "$datadir"fastq/merged.fq
+    cat "$datadir"fastq/*.fq > "$datadir"fastq/merged.fastq && rm -f "$datadir"fastq/*.fq
+    parallel gzip {} ::: "$datadir"fastq/*.aln 
+    fastq="$datadir"/fastq/merged.fastq
     echo "Done"
 fi
 
 echo "Preapare reads ..."
-mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
-chuncksPrefix="$datadir"/chuncks/chunck_aa 
-time bash $bindir/corpus/parse_fastq_1.sh $fastq $linesperfile $chuncksPrefix
+# mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
+readsOnly="$datadir"chuncks/
+# bash $bindir/corpus/parse_fastq.sh $fastq $readsOnly
 echo "Done"
 
 echo "Split the fastq file ..."
-rm -rf "$datadir"splitFastq && mkdir -p "$datadir"splitFastq
-zcat $fastq | split -l 4000000 - "$datadir"splitFastq/
+# rm -rf "$datadir"splitFastq && mkdir -p "$datadir"splitFastq
+# cat $fastq | split -l 4000000 - "$datadir"splitFastq/ # split to process 1M reads per time with jellyfish
 echo "Done"
-echo "Create MC model ..." 
-for dim in `seq 10 2 14`; do
-    echo "count"
-    for file in `ls "$datadir"splitFastq/`; do
-	input="$datadir"splitFastq/"$file"
-	bash "$bindir"/segmentation/jelly_f1.sh $dim $input "$datadir""$file".jf
-    done 
-    echo "merge"
-    time jellyfish merge -o "$datadir"merged_"$dim".jf "$datadir"??.jf
-    rm -f "$datadir"??.jf
-done
+
+#!!! an option is to use kmc3
+echo "Create MC model ..." 	# it takes 30min on BB23
+# rm -f "$datadir"??.jf
+# for dim in `seq 6 2 10`; do
+#     echo "count"
+#     for file in `ls "$datadir"splitFastq/`; do
+# 	input="$datadir"splitFastq/"$file"
+# 	bash "$bindir"/segmentation/jelly_f1.sh $dim $input "$datadir""$file".jf
+#     done 
+#     echo "merge"
+#     jellyfish merge -o "$datadir"merged_"$dim".jf "$datadir"??.jf
+#     rm -f "$datadir"??.jf
+# done
 
 echo "Build the transition matrix"
-time parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"merged_{}.jf {} 1.0 ::: 10 12 14
-rm -rf $datadir/MCmodel		# clean directory
-mkdir -p $datadir/MCmodel 
-mv "$datadir"*.csv $datadir/MCmodel
-rm -rf "$datadir"*.{fa,tsv,jf}
+# time parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"merged_{}.jf {} 1.0 ::: 6 8 10
+# rm -rf "$datadir"MCmodel		# clean directory
+# mkdir -p "$datadir"MCmodel 
+# mv "$datadir"*.csv "$datadir"MCmodel
+# rm -rf "$datadir"*.{fa,tsv,jf}
 echo "Done"
-# !!!INTRODUCE THE RIGHT TO LEFT AND LEFT TO RIGTH REPRESENTATION!!!
 
 echo "Prepare corpus ..."
-g++ -std=c++11 $bindir/corpus/tokenizer_withMean.cpp -o $bindir/corpus/mean & pid1=$! # compile the tokenizer
-g++ -std=c++11 $bindir/corpus/tokenizer_withMedian.cpp -o $bindir/corpus/median & pid2=$! # compile the tokenizer
-wait $pid1
-wait $pid2
-time ./corpus/mean "$datadir"chuncks/chunck_aa "$datadir"MCmodel/ > "$datadir"chuncks/chunck_aa_MeanSentences
-# time parallel "./corpus/mean {} '$datadir'MCmodel/ > {}_MeanSentences" ::: "$datadir"chuncks/chunck_*
-# time parallel "./corpus/median {} '$datadir'MCmodel/ > {}_MeanSentences" ::: "$datadir"chuncks/chunck_*
+# g++ -std=c++11 $bindir/corpus/tokenizer_withMean.cpp -o $bindir/corpus/mean & pid1=$! # compile the tokenizer
+# g++ -std=c++11 $bindir/corpus/tokenizer_withMedian.cpp -o $bindir/corpus/median & pid2=$! # compile the tokenizer
+# wait $pid1
+# wait $pid2
+#!!!CREATE THE REVCOM OF THE READ AND SPLIT IT. TO HAVE 2 DOCS FROM EACH READ!!!!
+#!!!THE CPP CODE CAN BE PARALLELIZED
+parallel "./corpus/mean {} '$datadir'MCmodel/ > {}_sentences" ::: "$datadir"chuncks/??
 echo "Done"
 
 ################################################################
@@ -81,39 +90,39 @@ echo "Done"
 ################################################################
 
 # echo "Move corpus into specific directory and make the vocabulary"
-# mkdir -p "$datadir"/corpus && rm -f "$datadir"/corpus/*
-# mv "$chuncksPrefix"*_sentences.txt "$datadir"/corpus
-# mkdir -p "$datadir"/corpus_summary && rm -f "$datadir"/corpus_summary/*
-# corpus="$datadir"/corpus/*
+# mkdir -p "$datadir"corpus && rm -f "$datadir"corpus/*
+# mv "$readsOnly"*_sentences "$datadir"corpus
+# mkdir -p "$datadir"corpus_summary && rm -f "$datadir"corpus_summary/*
+# corpus="$datadir"corpus/*
 
-# time cat $corpus | tr -d "'[]," | tr ' ' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c | awk '{print $1"\t"$2}' > "$datadir"/corpus_summary/count_word.txt
-# bash ./functions/word_frequency.sh "$datadir"/corpus_summary/count_word.txt
+# cat $corpus | cut -d',' -f2-| 	# remove first word
+# tr -d "'[]" | tr ',' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c | 
+# awk '{if (length($2)>2) print $1"\t"$2}' > "$datadir"corpus_summary/count_word.txt # consider words of length >2
+# bash ./functions/word_frequency.sh "$datadir"corpus_summary/count_word.txt
 
-# awk '{print $2}' "$datadir"/corpus_summary/count_word.txt > "$datadir"/corpus_summary/vocabulary.txt
-# awk '{print $1}' "$datadir"/corpus_summary/count_word.txt | LC_ALL=C sort -nr|cat -n|awk '{print $1"\t"$2}'|
-# datamash -s groupby 2 max 1 > "$datadir"/corpus_summary/rank_frequency.dat
+# awk '{print $2}' "$datadir"corpus_summary/count_word.txt > "$datadir"corpus_summary/vocabulary.txt
 
-# awk '{print length($1)}' "$datadir"/corpus_summary/vocabulary.txt | LC_ALL=C sort -n | LC_ALL=C uniq -c | 
+# awk '{print length($1)}' "$datadir"corpus_summary/vocabulary.txt | LC_ALL=C sort -n | LC_ALL=C uniq -c | 
 # gnuplot -p -e 'set terminal pdf; set output "wordlen-freq.pdf";set logscale y; plot "/dev/stdin" using 2:1'
-# mv wordlen-freq.pdf "$datadir"/corpus_summary
+# mv wordlen-freq.pdf "$datadir"corpus_summary
 # echo 'Done'
 
 # echo 'Build the Document by Term matrix ...'
 # word_len_threshold=100		# max word length
-# time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"/corpus_summary/vocabulary.txt $word_len_threshold ::: "$datadir"/corpus/*_sentences.txt 
-# mkdir -p "$datadir"/pickle && rm -f "$datadir"/pickle/*
-# mv "$datadir"/corpus/*_sparseDocTermMat.pickle "$datadir"/pickle
-# time python $bindir/structure/mergeDocTermMat.py "$datadir"/pickle
-# rm -f "$datadir"/pickle/chunck*pickle
+# time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"corpus_summary/vocabulary.txt $word_len_threshold ::: "$datadir"corpus/*_sentences.txt 
+# mkdir -p "$datadir"pickle && rm -f "$datadir"pickle/*
+# mv "$datadir"corpus/*_sparseDocTermMat.pickle "$datadir"pickle
+# time python $bindir/structure/mergeDocTermMat.py "$datadir"pickle
+# rm -f "$datadir"pickle/chunck*pickle
 # echo 'Done'
 
 # echo 'Build the co-occurrence matrix ...'
 # # The total number of docs can be < than the initial numb of reads because some reads might contain too few words
-# time python $bindir/structure/cooccurrenceMat.py "$datadir"/pickle/DTM.pickle
+# time python $bindir/structure/cooccurrenceMat.py "$datadir"pickle/DTM.pickle
 # echo 'Done'
 
 ####################
 # echo 'Run gensim word2vec implementation ...'
-# python ./structure/word2vector.py "$datadir"/corpus
+# python ./structure/word2vector.py "$datadir"corpus
 # echo 'Done!
 ###########################################

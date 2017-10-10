@@ -34,16 +34,17 @@ df.to_csv(os.path.join(path2file, "freq-multiplicity" + "." + "csv"))
 ######
 alpha = 1.0+filtered_df.shape[0]*1.0/np.log10(filtered_df.frequency/xmin).sum()
 C = alpha - 1.0
+
 print "alpha = " + str(alpha)
 print "C = " + str(C)
+
 import matplotlib.pyplot as plt
 plt.plot(filtered_df.frequency,C*filtered_df.frequency**(-alpha),'r--')
-# plt.plot(filtered_df.frequency,C*filtered_df.frequency**(-alpha+0.5),'b--')
-# plt.plot(filtered_df.frequency,C*filtered_df.frequency**(-alpha-0.5),'g--')
 plt.plot(filtered_df.frequency,filtered_df.multiplicity,'ro') 
 plt.xscale('log')# the log is base 10
 plt.yscale('log')
 plt.xlabel('Frequency')
 plt.ylabel('Probability')
+
 # plt.show()
 plt.savefig(os.path.join(path2file, "freq-prob.pdf"))

@@ -95,41 +95,41 @@ float median_func(vector<float> newvec)
 int main ( int argc, char* argv[] )
 { 
   string path;
+  ifstream model6;
+  ifstream model8;
   ifstream model10;
-  ifstream model12;
-  ifstream model14;
+  path = string(argv[2])+"merged_6.jf.csv";
+  model6.open( path ); // the MC model
+  if (!model6.good()) 
+    return 1;                         // exit if file not found
+  path = string(argv[2])+"merged_8.jf.csv";
+  model8.open( path ); // the MC model
+  if (!model8.good()) 
+    return 1;                         // exit if file not found
   path = string(argv[2])+"merged_10.jf.csv";
   model10.open( path ); // the MC model
   if (!model10.good()) 
     return 1;                         // exit if file not found
-  path = string(argv[2])+"merged_12.jf.csv";
-  model12.open( path ); // the MC model
-  if (!model12.good()) 
-    return 1;                         // exit if file not found
-  path = string(argv[2])+"merged_14.jf.csv";
-  model14.open( path ); // the MC model
-  if (!model14.good()) 
-    return 1;                         // exit if file not found
 
-  map<string, float> m10,m12,m14;
-  map<string, float>::iterator p10,p12,p14;
+  map<string, float> m8,m10,m6;
+  map<string, float>::iterator p8,p10,p6;
   string read,kmer;
   float value;
+  while (!model6.eof())	// loop over model lines
+    {
+      model6 >> kmer >> value;
+      m6[kmer] = value;
+    }
+  while (!model8.eof())	// loop over model lines
+    {
+      model8 >> kmer >> value;
+      m8[kmer] = value;
+    }
   while (!model10.eof())	// loop over model lines
     {
       model10 >> kmer >> value;
       m10[kmer] = value;
     }
-  // while (!model12.eof())	// loop over model lines
-  //   {
-  //     model12 >> kmer >> value;
-  //     m12[kmer] = value;
-  //   }
-  // while (!model14.eof())	// loop over model lines
-  //   {
-  //     model14 >> kmer >> value;
-  //     m14[kmer] = value;
-  //   }
 
   ifstream reads;
   reads.open( argv[1] );              // We assume argv[1] is the file with reads
@@ -144,7 +144,35 @@ int main ( int argc, char* argv[] )
   while (getline(reads, read))	// loop over reads
     {
       sumvec = {};
-      vector<float> profile4(read.size(),0.0),profile6(read.size(),0.0),profile8(read.size(),0.0),profile10(read.size(),0.0),profile12(read.size(),0.0),profile14(read.size(),0.0);
+      vector<float> profile6(read.size(),0.0),profile8(read.size(),0.0),profile10(read.size(),0.0);
+
+      k = 6;
+      for (unsigned i = 0; i < read.length()-(k-1); i += 1)
+      	{
+      	  kmer = read.substr(i, k);
+      	  p6 = m6.find(kmer);
+      	  if (p6 != m6.end())
+      	    {
+      	      info = p6->second;  
+      	      profile6[i+k-1] += info;
+      	    }
+      	}
+      sum = accumulate( profile6.begin()+(k-1), profile6.end(), 0.0 );
+      sumvec.push_back( sum/(1.0*(read.size()-k+1)) ); // evaluate the numb of bits per effective read length 
+
+      k = 8;
+      for (unsigned i = 0; i < read.length()-(k-1); i += 1)
+      	{
+      	  kmer = read.substr(i, k);
+      	  p8 = m8.find(kmer);
+      	  if (p8 != m8.end())
+      	    {
+      	      info = p8->second;  
+      	      profile8[i+k-1] += info;
+      	    }
+      	}
+      sum = accumulate( profile8.begin()+(k-1), profile8.end(), 0.0 );
+      sumvec.push_back( sum/(1.0*(read.size()-k+1)) ); // evaluate the numb of bits per effective read length 
 
       k = 10;
       for (unsigned i = 0; i < read.length()-(k-1); i += 1)
@@ -158,48 +186,20 @@ int main ( int argc, char* argv[] )
       	    }
       	}
       sum = accumulate( profile10.begin()+(k-1), profile10.end(), 0.0 );
-      sumvec.push_back( sum/(1.0*(read.size()-k+1)) ); // evaluate the numb of bits per effective read length 
-
-      // k = 12;
-      // for (unsigned i = 0; i < read.length()-(k-1); i += 1)
-      // 	{
-      // 	  kmer = read.substr(i, k);
-      // 	  p12 = m12.find(kmer);
-      // 	  if (p12 != m12.end())
-      // 	    {
-      // 	      info = p12->second;  
-      // 	      profile12[i+k-1] += info;
-      // 	    }
-      // 	}
-      // sum = accumulate( profile12.begin()+(k-1), profile12.end(), 0.0 );
-      // sumvec.push_back( sum/(1.0*(read.size()-k+1)) );
-
-      // k = 14;
-      // for (unsigned i = 0; i < read.length()-(k-1); i += 1)
-      // 	{
-      // 	  kmer = read.substr(i, k);
-      // 	  p14 = m14.find(kmer);
-      // 	  if (p14 != m14.end())
-      // 	    {
-      // 	      info = p14->second;  
-      // 	      profile14[i+k-1] += info;
-      // 	    }
-      // 	}
-      // sum = accumulate( profile14.begin()+(k-1), profile14.end(), 0.0 );
-      // sumvec.push_back( sum/(1.0*(read.size()-k+1)) );
+      sumvec.push_back( sum/(1.0*(read.size()-k+1)) );
 
       // Find the optimal kmer size
       auto smallest = min_element(begin(sumvec), end(sumvec));
       location = distance(begin(sumvec), smallest);
-      k = 2*location + 10;
+      k = 2*location + 6;
 
       // Select the optimal profile for the read
+      if ( k == 6 )
+      	selection = profile6;
+      if ( k == 8 )
+      	selection = profile8;
       if ( k == 10 )
       	selection = profile10;
-      if ( k == 12 )
-      	selection = profile12;
-      if ( k == 14 )
-      	selection = profile14;
 
       vector<float> y = selection;
       int context = k-1;
@@ -221,17 +221,3 @@ int main ( int argc, char* argv[] )
       cout << endl;
     }// end of loop over reads
 } 
-
-
-// cout << "The optimal kmer is fot k= " << k << endl;
-// Show the map content
-// cout << m.find(key)->second;
-// for(map<string, float>::iterator it = m.begin(); it != m.end(); ++it)
-//   {
-//     cout << it->first << " kmer " << it->second << " value" << endl;
-//   }
-// // Show the information profile vector
-// for(unsigned int i = 0; i < profile.size(); i++)
-// 	{
-// 	  cout << profile[i] << endl;
-// 	}
