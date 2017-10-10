@@ -10,7 +10,7 @@ import numpy as np
 import scipy.sparse as sp
 from sklearn.feature_extraction.text import CountVectorizer
 
-file_name = str(sys.argv[1])    # ex: "$datadir"/corpus/*_sentences.txt 
+file_name = str(sys.argv[1])    # ex: "$datadir"/corpus/*_sentences
 
 docs = []
 with open(file_name,"rb") as f:
@@ -22,7 +22,9 @@ vocabulary = []
 with open(voc) as f:
     for word in f:
         vocabulary.append(str(word).rstrip())
+
 new_vocabulary = [x for x in vocabulary if len(x) <= int(sys.argv[3])] # filter-out long words
+
 vectorizer = CountVectorizer(lowercase=False,vocabulary=new_vocabulary)
 X = vectorizer.fit_transform(docs)
 

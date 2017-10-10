@@ -54,6 +54,7 @@ echo "Split the fastq file ..."
 echo "Done"
 
 #!!! an option is to use kmc3
+#!!!CONSIDER BUILDING THE MODEL FROM A REFERENCE GENOME
 echo "Create MC model ..." 	# it takes 30min on BB23
 # rm -f "$datadir"??.jf
 # for dim in `seq 6 2 10`; do
@@ -82,19 +83,15 @@ echo "Prepare corpus ..."
 # wait $pid2
 #!!!CREATE THE REVCOM OF THE READ AND SPLIT IT. TO HAVE 2 DOCS FROM EACH READ!!!!
 #!!!THE CPP CODE CAN BE PARALLELIZED
-parallel "./corpus/mean {} '$datadir'MCmodel/ > {}_sentences" ::: "$datadir"chuncks/??
+# parallel "./corpus/mean {} '$datadir'MCmodel/ > {}_sentences" ::: "$datadir"chuncks/??
 echo "Done"
 
-################################################################
-#!!! NEED TO REMOVE FIRST WORD AND SHORT WORDS IN DOCUMENTS  !!!
-################################################################
-
-# echo "Move corpus into specific directory and make the vocabulary"
+echo "Move corpus into specific directory and make the vocabulary"
 # mkdir -p "$datadir"corpus && rm -f "$datadir"corpus/*
 # mv "$readsOnly"*_sentences "$datadir"corpus
 # mkdir -p "$datadir"corpus_summary && rm -f "$datadir"corpus_summary/*
-# corpus="$datadir"corpus/*
 
+# corpus="$datadir"corpus/*
 # cat $corpus | cut -d',' -f2-| 	# remove first word
 # tr -d "'[]" | tr ',' '\n' | LC_ALL=C sort | LC_ALL=C uniq -c | 
 # awk '{if (length($2)>2) print $1"\t"$2}' > "$datadir"corpus_summary/count_word.txt # consider words of length >2
@@ -105,21 +102,23 @@ echo "Done"
 # awk '{print length($1)}' "$datadir"corpus_summary/vocabulary.txt | LC_ALL=C sort -n | LC_ALL=C uniq -c | 
 # gnuplot -p -e 'set terminal pdf; set output "wordlen-freq.pdf";set logscale y; plot "/dev/stdin" using 2:1'
 # mv wordlen-freq.pdf "$datadir"corpus_summary
-# echo 'Done'
+echo 'Done'
 
-# echo 'Build the Document by Term matrix ...'
-# word_len_threshold=100		# max word length
-# time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"corpus_summary/vocabulary.txt $word_len_threshold ::: "$datadir"corpus/*_sentences.txt 
+echo 'Build the Document by Term matrix ...'
+# word_len_threshold=40		# max word length
+# time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"corpus_summary/vocabulary.txt $word_len_threshold ::: "$datadir"corpus/*_sentences
+
 # mkdir -p "$datadir"pickle && rm -f "$datadir"pickle/*
 # mv "$datadir"corpus/*_sparseDocTermMat.pickle "$datadir"pickle
-# time python $bindir/structure/mergeDocTermMat.py "$datadir"pickle
-# rm -f "$datadir"pickle/chunck*pickle
-# echo 'Done'
 
-# echo 'Build the co-occurrence matrix ...'
-# # The total number of docs can be < than the initial numb of reads because some reads might contain too few words
-# time python $bindir/structure/cooccurrenceMat.py "$datadir"pickle/DTM.pickle
-# echo 'Done'
+# time python $bindir/structure/mergeDocTermMat.py "$datadir"pickle
+
+rm -f "$datadir"pickle/*_sentences_sparseDocTermMat.pickle
+echo 'Done'
+
+echo 'Build the co-occurrence matrix ...'
+time python $bindir/structure/cooccurrenceMat.py "$datadir"pickle/DTM.pickle
+echo 'Done'
 
 ####################
 # echo 'Run gensim word2vec implementation ...'
