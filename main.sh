@@ -43,8 +43,8 @@ if [[ $simulation_flag == 0 ]]; then # simulate sequencing
 fi
 
 echo "Preapare reads ..."
-# mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
 readsOnly="$datadir"chuncks/
+# mkdir -p "$datadir"/chuncks && rm -f "$datadir"/chuncks/*
 # bash $bindir/corpus/parse_fastq.sh $fastq $readsOnly
 echo "Done"
 
@@ -56,6 +56,8 @@ echo "Done"
 #!!! an option is to use kmc3
 #!!!CONSIDER BUILDING THE MODEL FROM A REFERENCE GENOME
 echo "Create MC model ..." 	# it takes 30min on BB23
+
+# # USE THIS IF MODEL IS CREATED FROM FASTQ FILE:
 # rm -f "$datadir"??.jf
 # for dim in `seq 6 2 10`; do
 #     echo "count"
@@ -67,26 +69,34 @@ echo "Create MC model ..." 	# it takes 30min on BB23
 #     jellyfish merge -o "$datadir"merged_"$dim".jf "$datadir"??.jf
 #     rm -f "$datadir"??.jf
 # done
-
-echo "Build the transition matrix"
 # time parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"merged_{}.jf {} 1.0 ::: 6 8 10
+
+# USE THIS IF MODEL IS CREATED FROM REFERENCE GENOME:
+# jellyfish count -m 9 -s 3G -t 32 --disk -o "$datadir"9mer_hg19.jf ~/igv/genomes/hg19.fasta
+# jellyfish count -m 10 -s 3G -t 32 --disk -o "$datadir"10mer_hg19.jf ~/igv/genomes/hg19.fasta
+# jellyfish count -m 11 -s 3G -t 32 --disk -o "$datadir"11mer_hg19.jf ~/igv/genomes/hg19.fasta
+# jellyfish count -m 12 -s 3G -t 32 --disk -o "$datadir"12mer_hg19.jf ~/igv/genomes/hg19.fasta
+# parallel bash "$bindir"/segmentation/jelly_f2.sh "$datadir"{}mer_hg19.jf {} 1.0 ::: 9 10 11 12
+
 # rm -rf "$datadir"MCmodel		# clean directory
 # mkdir -p "$datadir"MCmodel 
 # mv "$datadir"*.csv "$datadir"MCmodel
 # rm -rf "$datadir"*.{fa,tsv,jf}
-echo "Done"
+# echo "Done"
 
 echo "Prepare corpus ..."
-# g++ -std=c++11 $bindir/corpus/tokenizer_withMean.cpp -o $bindir/corpus/mean & pid1=$! # compile the tokenizer
-# g++ -std=c++11 $bindir/corpus/tokenizer_withMedian.cpp -o $bindir/corpus/median & pid2=$! # compile the tokenizer
-# wait $pid1
-# wait $pid2
-#!!!CREATE THE REVCOM OF THE READ AND SPLIT IT. TO HAVE 2 DOCS FROM EACH READ!!!!
-#!!!THE CPP CODE CAN BE PARALLELIZED
-# parallel "./corpus/mean {} '$datadir'MCmodel/ > {}_sentences" ::: "$datadir"chuncks/??
+g++ -std=c++11 $bindir/corpus/tokenizer_withMean.cpp -o $bindir/corpus/mean & pid1=$! # compile the tokenizer
+g++ -std=c++11 $bindir/corpus/tokenizer_withMean_RC.cpp -o $bindir/corpus/meanRC & pid2=$! # compile the tokenizer
+# g++ -std=c++11 $bindir/corpus/tokenizer_withMedian.cpp -o $bindir/corpus/median & pid3=$! # compile the tokenizer
+wait $pid1
+wait $pid2
+./corpus/mean ./corpus/read.txt '$datadir'MCmodel/ > test1
+./corpus/meanRC ./corpus/read.txt '$datadir'MCmodel/ > test2
+# time parallel "./corpus/mean {} '$datadir'MCmodel/ > {}_sentences" ::: "$datadir"chuncks/??
+# time parallel "./corpus/meanRC {} '$datadir'MCmodel/ > {}_RCsentences" ::: "$datadir"chuncks/??
 echo "Done"
 
-echo "Move corpus into specific directory and make the vocabulary"
+# echo "Move corpus into specific directory and make the vocabulary"
 # mkdir -p "$datadir"corpus && rm -f "$datadir"corpus/*
 # mv "$readsOnly"*_sentences "$datadir"corpus
 # mkdir -p "$datadir"corpus_summary && rm -f "$datadir"corpus_summary/*
@@ -102,9 +112,9 @@ echo "Move corpus into specific directory and make the vocabulary"
 # awk '{print length($1)}' "$datadir"corpus_summary/vocabulary.txt | LC_ALL=C sort -n | LC_ALL=C uniq -c | 
 # gnuplot -p -e 'set terminal pdf; set output "wordlen-freq.pdf";set logscale y; plot "/dev/stdin" using 2:1'
 # mv wordlen-freq.pdf "$datadir"corpus_summary
-echo 'Done'
+# echo 'Done'
 
-echo 'Build the Document by Term matrix ...'
+# echo 'Build the Document by Term matrix ...'
 # word_len_threshold=40		# max word length
 # time parallel python "$bindir"/structure/termDocumentMatrix.py {} "$datadir"corpus_summary/vocabulary.txt $word_len_threshold ::: "$datadir"corpus/*_sentences
 
@@ -113,12 +123,12 @@ echo 'Build the Document by Term matrix ...'
 
 # time python $bindir/structure/mergeDocTermMat.py "$datadir"pickle
 
-rm -f "$datadir"pickle/*_sentences_sparseDocTermMat.pickle
-echo 'Done'
+# rm -f "$datadir"pickle/*_sentences_sparseDocTermMat.pickle
+# echo 'Done'
 
-echo 'Build the co-occurrence matrix ...'
-time python $bindir/structure/cooccurrenceMat.py "$datadir"pickle/DTM.pickle
-echo 'Done'
+# echo 'Build the co-occurrence matrix ...'
+# time python $bindir/structure/cooccurrenceMat.py "$datadir"pickle/DTM.pickle
+# echo 'Done'
 
 ####################
 # echo 'Run gensim word2vec implementation ...'
