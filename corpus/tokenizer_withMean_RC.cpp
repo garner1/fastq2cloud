@@ -77,21 +77,6 @@ vector<int> stop_finder( vector<float> y, int dim, int lag, float threshold, flo
   return signals;
 }
 
-float median_func(vector<float> newvec)
-{
-  float median;
-  int size = newvec.size();
-  sort(newvec.begin(), newvec.end());
-  if (size % 2 == 0)
-    {
-      median = (newvec[size / 2 - 1] + newvec[size / 2]) / 2.0;
-    }
-  else
-    median = newvec[size / 2]; 
-
-  return median;
-}
-
 string revcomplement(string seq)
 {
     auto lambda = [](const char c) {
@@ -104,6 +89,8 @@ string revcomplement(string seq)
             return 'G';
         case 'T':
             return 'A';
+        case 'N':
+            return 'N';
         default:
             throw domain_error("Invalid nucleotide.");
         }
@@ -117,31 +104,22 @@ string revcomplement(string seq)
 int main ( int argc, char* argv[] )
 { 
   string path;
+  ifstream model6;
   ifstream model11;
   ifstream model12;
-  map<string, float> m11,m12;
-  map<string, float>::iterator p11,p12;
+  map<string, float> m6,m11,m12;
+  map<string, float>::iterator p6,p11,p12;
   string read,kmer;
   float value;
 
-  path = string(argv[2])+"11mer_hg19.jf.csv";
-  model11.open( path ); // the MC model
-  if (!model11.good()) 
+  path = string(argv[2])+"6mer_hg19.jf.csv";
+  model6.open( path ); // the MC model
+  if (!model6.good()) 
     return 1;                         // exit if file not found
-  while (!model11.eof())	// loop over model lines
+  while (!model6.eof())	// loop over model lines
     {
-      model11 >> kmer >> value;
-      m11[kmer] = value;
-    }
-
-  path = string(argv[2])+"12mer_hg19.jf.csv";
-  model12.open( path ); // the MC model
-  if (!model12.good()) 
-    return 1;                         // exit if file not found
-  while (!model12.eof())	// loop over model lines
-    {
-      model12 >> kmer >> value;
-      m12[kmer] = value;
+      model6 >> kmer >> value;
+      m6[kmer] = value;
     }
 
   ifstream reads;
@@ -161,40 +139,28 @@ int main ( int argc, char* argv[] )
       
       read = revcomplement(read);
       
-      k = 11;
+      k = 6;
       for (unsigned i = 0; i < read.length()-(k-1); i += 1)
       	{
       	  kmer = read.substr(i, k);
-      	  p11 = m11.find(kmer);
-      	  if (p11 != m11.end())
+      	  p6 = m6.find(kmer);
+      	  if (p6 != m6.end())
       	    {
-      	      info = p11->second;  
-      	      profile11[i+k-1] += info;
+      	      info = p6->second;  
+      	      profile6[i+k-1] += info;
       	    }
       	}
-      sum = accumulate( profile11.begin()+(k-1), profile11.end(), 0.0 );
+      sum = accumulate( profile6.begin()+(k-1), profile6.end(), 0.0 );
       sumvec.push_back( sum/(1.0*(read.size()-k+1)) ); // evaluate the numb of bits per effective read length 
 
-      k = 12;
-      for (unsigned i = 0; i < read.length()-(k-1); i += 1)
-      	{
-      	  kmer = read.substr(i, k);
-      	  p12 = m12.find(kmer);
-      	  if (p12 != m12.end())
-      	    {
-      	      info = p12->second;  
-      	      profile12[i+k-1] += info;
-      	    }
-      	}
-      sum = accumulate( profile12.begin()+(k-1), profile12.end(), 0.0 );
-      sumvec.push_back( sum/(1.0*(read.size()-k+1)) );
-
-      // Find the optimal kmer size
-      auto smallest = min_element(begin(sumvec), end(sumvec));
-      location = distance(begin(sumvec), smallest);
-      k = 1*location + 11;
+      // // Find the optimal kmer size
+      // auto smallest = min_element(begin(sumvec), end(sumvec));
+      // location = distance(begin(sumvec), smallest);
+      // k = 1*location + 11;
 
       // Select the optimal profile for the read
+      if ( k == 6 )
+      	selection = profile6;
       if ( k == 11 )
       	selection = profile11;
       if ( k == 12 )

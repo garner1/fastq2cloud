@@ -16,29 +16,44 @@ logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=lo
 
 mypath = sys.argv[1]
 
-onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+class MySentences(object):
+    def __init__(self, dirname):
+        self.dirname = dirname
+ 
+    def __iter__(self):
+        for fname in os.listdir(self.dirname):
+            for line in open(os.path.join(self.dirname, fname)):
+                yield line.split()
+ 
+# sentences = MySentences(mypath) # a memory-friendly iterator
+# model = gensim.models.Word2Vec(sentences,min_count=5,workers=32,window=10)
 
-sentences = []
-for f in listdir(mypath):       # sequentially add all files in directory
-    filename = join(mypath, f)
-    with open(filename,'rb') as f:
-        sentences.extend(pickle.load(f))
-    print filename, len(sentences)
+# model.save('/home/garner1/Work/dataset/fastq2cloud/hg19/word2vec_dir/word2vec')
 
-model = gensim.models.Word2Vec(sentences, min_count=10, workers=32)
+model = gensim.models.Word2Vec.load('/home/garner1/Work/dataset/fastq2cloud/hg19/word2vec_dir/word2vec')
+# V = model.wv.vocab.keys()
+# V = model.wv.vocab
+# print(V)
+# print (model.wv['GAGATGGA'])
+print (model.wv.most_similar('GAGATGGA'))
 
-model.save('/home/garner1/Work/dataset/fastq2cloud')
+# onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+# sentences = []
+# for f in listdir(mypath):       # sequentially add all files in directory
+#     filename = join(mypath, f)
+#     with open(filename,'rb') as f:
+#         sentences.extend(pickle.load(f))
+#     print filename, len(sentences)
+# model = gensim.models.Word2Vec(sentences, min_count=10, workers=32)
 
-X = model[model.wv.vocab]
+# tsne = TSNE(n_components=2)
+# X_tsne = tsne.fit_transform(X)
 
-tsne = TSNE(n_components=2)
-X_tsne = tsne.fit_transform(X)
+# idx = np.random.randint(X.shape[0], size=10000)
+# X_tsne = tsne.fit_transform(X[idx,:])
 
-idx = np.random.randint(X.shape[0], size=10000)
-X_tsne = tsne.fit_transform(X[idx,:])
-
-plt.scatter(X_tsne[:, 0], X_tsne[:, 1])
-plt.show()
+# plt.scatter(X_tsne[:, 0], X_tsne[:, 1])
+# plt.show()
 
 ########################################
 # model = gensim.models.Word2Vec(iter=1)  # an empty model, no training yet

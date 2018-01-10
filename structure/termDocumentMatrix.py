@@ -23,9 +23,9 @@ with open(voc) as f:
     for word in f:
         vocabulary.append(str(word).rstrip())
 
-new_vocabulary = [x for x in vocabulary if len(x) <= int(sys.argv[3])] # filter-out long words
+# new_vocabulary = [x for x in vocabulary if len(x) <= int(sys.argv[3])] # filter-out long words
 
-vectorizer = CountVectorizer(lowercase=False,vocabulary=new_vocabulary)
+vectorizer = CountVectorizer(lowercase=False,vocabulary=vocabulary)
 X = vectorizer.fit_transform(docs)
 
 with open(file_name + "_sparseDocTermMat.pickle", 'wb') as f:
